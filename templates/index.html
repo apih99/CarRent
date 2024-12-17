@@ -1,0 +1,268 @@
+{% extends "user_base.html" %}
+
+{% block title %}Home{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center mb-5">
+    <div class="col-md-8 text-center">
+        <h1 class="mb-4 text-white">Welcome to Student Car Rental</h1>
+        <p class="lead text-info">Easy and convenient car rentals for students</p>
+    </div>
+</div>
+
+<!-- Car Availability Dashboard -->
+<div class="row mb-4">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header bg-dark d-flex justify-content-between align-items-center">
+                <h3 class="card-title mb-0 text-white">Car Availability</h3>
+                <div class="text-info">
+                    Next 7 Days Availability
+                </div>
+            </div>
+            <div class="card-body">
+                {% if cars %}
+                <div class="table-responsive">
+                    <table class="table table-dark table-hover">
+                        <thead>
+                            <tr class="text-info">
+                                <th style="min-width: 200px;">Car</th>
+                                {% for date in dates %}
+                                <th class="text-center">{{ date }}</th>
+                                {% endfor %}
+                                <th class="text-center">Action</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for car in cars %}
+                            <tr>
+                                <td>
+                                    <div class="car-info">
+                                        <h5 class="car-model mb-1 text-white">{{ car.model }}</h5>
+                                        <div class="car-details">
+                                            <span class="badge bg-info me-2">{{ car.year }}</span>
+                                            <span class="badge bg-primary me-2">RM{{ car.daily_rate }}/day</span>
+                                            <span class="badge bg-primary me-2">RM{{ car.hourly_rate }}/hour</span>
+                                            <small class="text-info d-block mt-1">{{ car.license_plate }}</small>
+                                        </div>
+                                    </div>
+                                </td>
+                                {% for date in dates %}
+                                <td class="text-center availability-cell" 
+                                    data-car-id="{{ car.id }}" 
+                                    data-date="{{ date }}">
+                                    <div class="spinner-border spinner-border-sm text-info" role="status">
+                                        <span class="visually-hidden">Loading...</span>
+                                    </div>
+                                </td>
+                                {% endfor %}
+                                <td class="text-center">
+                                    <a href="{{ url_for('make_reservation') }}" class="btn btn-info btn-sm">
+                                        <i class="fas fa-calendar-plus"></i> Reserve
+                                    </a>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+                {% else %}
+                <div class="text-center py-5">
+                    <div class="mb-3">
+                        <i class="fas fa-car fa-3x text-info"></i>
+                    </div>
+                    <h4 class="text-white">No Cars Available</h4>
+                    <p class="text-info">Please check back later for available cars.</p>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Quick Actions -->
+<div class="row justify-content-center">
+    <div class="col-md-6">
+        <div class="card">
+            <div class="card-body text-center">
+                <h5 class="card-title text-white">Make a Reservation</h5>
+                <p class="card-text text-info">Ready to book a car? Click below to start your reservation.</p>
+                <a href="{{ url_for('make_reservation') }}" class="btn btn-info">
+                    <i class="fas fa-calendar-plus"></i> Reserve Now
+                </a>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Add Font Awesome for icons -->
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css">
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const cells = document.querySelectorAll('.availability-cell');
+    
+    cells.forEach(cell => {
+        const carId = cell.dataset.carId;
+        const date = cell.dataset.date;
+        
+        // Check availability for each cell
+        fetch(`/check_availability/${carId}`)
+            .then(response => response.json())
+            .then(data => {
+                const isAvailable = !data.reserved_dates.some(reservation => {
+                    const start = new Date(reservation.start);
+                    const end = new Date(reservation.end);
+                    const checkDate = new Date(date);
+                    return checkDate >= start && checkDate <= end;
+                });
+
+                // Remove loading spinner
+                cell.innerHTML = isAvailable 
+                    ? '<span class="badge bg-success"><i class="fas fa-check"></i> Available</span>'
+                    : '<span class="badge bg-danger"><i class="fas fa-times"></i> Reserved</span>';
+            })
+            .catch(error => {
+                cell.innerHTML = '<span class="badge bg-warning"><i class="fas fa-exclamation-triangle"></i> Error</span>';
+                console.error('Error checking availability:', error);
+            });
+    });
+});
+</script>
+
+<style>
+:root {
+    --bright-text: #ffffff;
+    --info-text: #5ddef4;
+    --highlight-text: #f7f7f7;
+}
+
+.text-white {
+    color: var(--bright-text) !important;
+}
+
+.text-info {
+    color: var(--info-text) !important;
+}
+
+.table td, .table th {
+    vertical-align: middle;
+    color: var(--bright-text);
+}
+
+.table thead th {
+    color: var(--info-text);
+    font-weight: 600;
+}
+
+.availability-cell {
+    min-width: 120px;
+}
+
+.card-header {
+    border-bottom: 1px solid #404040;
+}
+
+.badge {
+    padding: 0.5em 1em;
+    font-weight: 500;
+}
+
+.car-info {
+    padding: 0.5rem 0;
+}
+
+.car-model {
+    font-size: 1.1rem;
+    margin-bottom: 0.3rem;
+}
+
+.car-details {
+    font-size: 0.9rem;
+}
+
+/* Hover effect for table rows */
+.table-hover tbody tr:hover {
+    background-color: rgba(93, 222, 244, 0.1) !important;
+    transition: background-color 0.2s ease;
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+    .table-responsive {
+        overflow-x: auto;
+    }
+    
+    .availability-cell {
+        min-width: 100px;
+    }
+}
+
+/* Animation for status changes */
+.badge {
+    transition: all 0.3s ease;
+}
+
+.badge i {
+    margin-right: 4px;
+}
+
+/* Card hover effect */
+.card {
+    transition: transform 0.2s ease;
+}
+
+.card:hover {
+    transform: translateY(-2px);
+}
+
+/* Button styling */
+.btn-info {
+    background-color: var(--info-text);
+    border: none;
+    color: #000;
+    font-weight: 500;
+}
+
+.btn-info:hover {
+    background-color: #4bc8db;
+    color: #000;
+    transform: translateY(-1px);
+}
+
+/* Status badges */
+.badge.bg-success {
+    background-color: #00ff88 !important;
+    color: #000;
+}
+
+.badge.bg-danger {
+    background-color: #ff4444 !important;
+    color: #fff;
+}
+
+.badge.bg-warning {
+    background-color: #ffbb33 !important;
+    color: #000;
+}
+
+.badge.bg-info {
+    background-color: var(--info-text) !important;
+    color: #000;
+}
+
+.badge.bg-primary {
+    background-color: #3399ff !important;
+    color: #fff;
+}
+
+/* Table styling */
+.table-dark {
+    background-color: transparent;
+}
+
+.table-dark td, .table-dark th {
+    border-color: #404040;
+}
+</style>
+{% endblock %} 

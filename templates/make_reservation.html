@@ -1,0 +1,521 @@
+{% extends "user_base.html" %}
+
+{% block title %}Make Reservation{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-md-8">
+        <div class="reservation-header text-center mb-4 animate__animated animate__fadeIn">
+            <h2 class="text-glow mb-3">Make a Reservation</h2>
+            <p class="text-info lead">Fill in the details below to book your car</p>
+        </div>
+        <div class="card animate__animated animate__fadeInUp">
+            <div class="card-body">
+                <form method="POST" class="reservation-form">
+                    <!-- Car Selection -->
+                    <div class="form-section mb-4">
+                        <h4 class="section-title text-glow mb-3">
+                            <i class="fas fa-car"></i> Select Your Car
+                        </h4>
+                        <div class="mb-3">
+                            <select class="form-select custom-select" id="car" name="car_id" required>
+                                <option value="">Choose a car...</option>
+                                {% for car in cars %}
+                                <option value="{{ car.id }}" data-hourly-rate="{{ car.hourly_rate }}" data-daily-rate="{{ car.daily_rate }}">
+                                    {{ car.model }} ({{ car.year }}) - RM{{ car.daily_rate }}/day or RM{{ car.hourly_rate }}/hour
+                                </option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                    </div>
+
+                    <!-- Rental Type -->
+                    <div class="form-section mb-4">
+                        <h4 class="section-title text-glow mb-3">
+                            <i class="fas fa-clock"></i> Rental Type
+                        </h4>
+                        <div class="mb-3">
+                            <div class="form-check mb-2">
+                                <input class="form-check-input" type="radio" name="rental_type" id="rental_daily" value="daily" checked>
+                                <label class="form-check-label text-bright" for="rental_daily">
+                                    Daily Rental
+                                </label>
+                            </div>
+                            <div class="form-check">
+                                <input class="form-check-input" type="radio" name="rental_type" id="rental_hourly" value="hourly">
+                                <label class="form-check-label text-bright" for="rental_hourly">
+                                    Hourly Rental (Minimum 2 hours)
+                                </label>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Personal Information -->
+                    <div class="form-section mb-4">
+                        <h4 class="section-title text-glow mb-3">
+                            <i class="fas fa-user"></i> Personal Information
+                        </h4>
+                        <div class="mb-3">
+                            <label for="student_id" class="form-label text-bright">Student ID</label>
+                            <input type="text" class="form-control custom-input" id="student_id" name="student_id" required>
+                        </div>
+
+                        <div class="mb-3">
+                            <label for="email" class="form-label text-bright">Email Address</label>
+                            <input type="email" class="form-control custom-input" id="email" name="email" required>
+                        </div>
+
+                        <div class="mb-3">
+                            <label for="phone" class="form-label text-bright">Phone Number</label>
+                            <input type="tel" class="form-control custom-input" id="phone" name="phone" required>
+                        </div>
+                    </div>
+
+                    <!-- Rental Period -->
+                    <div class="form-section mb-4">
+                        <h4 class="section-title text-glow mb-3">
+                            <i class="fas fa-calendar-alt"></i> Rental Period
+                        </h4>
+                        <div class="row">
+                            <div class="col-md-6 mb-3">
+                                <label for="pickup_date" class="form-label text-bright">Pickup Date & Time</label>
+                                <input type="datetime-local" class="form-control custom-input" id="pickup_date" name="pickup_date" required>
+                            </div>
+
+                            <div class="col-md-6 mb-3">
+                                <label for="return_date" class="form-label text-bright">Return Date & Time</label>
+                                <input type="datetime-local" class="form-control custom-input" id="return_date" name="return_date" required>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Pickup Method -->
+                    <div class="form-section mb-4">
+                        <h4 class="section-title text-glow mb-3">
+                            <i class="fas fa-map-marker-alt"></i> Pickup Method
+                        </h4>
+                        <div class="mb-3">
+                            <div class="form-check mb-2">
+                                <input class="form-check-input" type="radio" name="pickup_method" id="pickup_setiawangsa" value="setiawangsa" checked>
+                                <label class="form-check-label text-bright" for="pickup_setiawangsa">
+                                    Pickup at Setiawangsa
+                                </label>
+                            </div>
+                            <div class="form-check">
+                                <input class="form-check-input" type="radio" name="pickup_method" id="pickup_delivery" value="delivery">
+                                <label class="form-check-label text-bright" for="pickup_delivery">
+                                    Delivery to UPNM (RM20 additional fee)
+                                </label>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="text-center mt-4">
+                        <button type="submit" class="btn btn-glow btn-lg">
+                            <i class="fas fa-check-circle"></i> Submit Reservation
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Custom Confirmation Modal -->
+<div id="confirmationModal" class="custom-modal" style="display: none;">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h4 class="text-glow">Confirm Reservation</h4>
+        </div>
+        <div class="modal-body" id="confirmationModalBody">
+            <!-- Content will be inserted by JavaScript -->
+        </div>
+        <div class="modal-footer">
+            <button type="button" class="btn btn-secondary" onclick="hideConfirmationModal()">Cancel</button>
+            <button type="button" class="btn btn-glow" onclick="submitReservation()">Confirm Reservation</button>
+        </div>
+    </div>
+</div>
+
+<!-- Modal Overlay -->
+<div id="modalOverlay" class="modal-overlay" style="display: none;"></div>
+
+<style>
+/* Glowing text effect */
+.text-glow {
+    color: #fff;
+    text-shadow: 0 0 10px rgba(93, 222, 244, 0.5);
+    font-weight: 600;
+}
+
+.text-bright {
+    color: #5ddef4;
+    font-weight: 500;
+    font-size: 1rem;
+}
+
+.text-info {
+    color: #5ddef4 !important;
+}
+
+/* Form styling */
+.form-section {
+    background: rgba(255, 255, 255, 0.05);
+    padding: 20px;
+    border-radius: 10px;
+    border: 1px solid rgba(93, 222, 244, 0.1);
+}
+
+.section-title {
+    font-size: 1.2rem;
+    margin-bottom: 1rem;
+}
+
+.section-title i {
+    margin-right: 8px;
+    color: #5ddef4;
+}
+
+/* Input styling */
+.custom-input {
+    background-color: rgba(30, 30, 30, 0.9) !important;
+    border: 1px solid rgba(93, 222, 244, 0.3) !important;
+    color: #fff !important;
+    transition: all 0.3s ease;
+}
+
+.custom-input:focus {
+    background-color: rgba(40, 40, 40, 0.9) !important;
+    border-color: #5ddef4 !important;
+    box-shadow: 0 0 10px rgba(93, 222, 244, 0.2) !important;
+}
+
+.custom-select {
+    background-color: rgba(30, 30, 30, 0.9) !important;
+    border: 1px solid rgba(93, 222, 244, 0.3) !important;
+    color: #fff !important;
+    transition: all 0.3s ease;
+}
+
+.custom-select:focus {
+    background-color: rgba(40, 40, 40, 0.9) !important;
+    border-color: #5ddef4 !important;
+    box-shadow: 0 0 10px rgba(93, 222, 244, 0.2) !important;
+}
+
+/* Button styling */
+.btn-glow {
+    background-color: #5ddef4;
+    color: #000;
+    border: none;
+    font-weight: 600;
+    padding: 12px 30px;
+    transition: all 0.3s ease;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+}
+
+.btn-glow:hover {
+    background-color: #4bc8db;
+    transform: translateY(-2px);
+    box-shadow: 0 5px 15px rgba(93, 222, 244, 0.3);
+}
+
+.btn-glow i {
+    margin-right: 8px;
+}
+
+/* Card styling */
+.card {
+    border: 1px solid rgba(93, 222, 244, 0.2);
+    box-shadow: 0 0 20px rgba(0, 0, 0, 0.3);
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+    .col-md-6 {
+        margin-bottom: 1rem;
+    }
+}
+
+/* Form validation styling */
+.form-control:valid {
+    border-color: rgba(93, 222, 244, 0.3) !important;
+}
+
+.form-control:invalid:not(:placeholder-shown) {
+    border-color: #ff6b6b !important;
+}
+
+/* Placeholder color */
+::placeholder {
+    color: rgba(255, 255, 255, 0.5) !important;
+}
+
+/* Add these new styles */
+.form-check-input {
+    background-color: rgba(30, 30, 30, 0.9) !important;
+    border: 1px solid rgba(93, 222, 244, 0.3) !important;
+}
+
+.form-check-input:checked {
+    background-color: #5ddef4 !important;
+    border-color: #5ddef4 !important;
+}
+
+.form-check-label {
+    cursor: pointer;
+}
+
+/* Custom Modal Styling */
+.custom-modal {
+    position: fixed;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    background: #343a40;
+    border-radius: 8px;
+    z-index: 1001;
+    width: 90%;
+    max-width: 500px;
+    box-shadow: 0 0 20px rgba(0, 0, 0, 0.5);
+}
+
+.modal-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background-color: rgba(0, 0, 0, 0.7);
+    z-index: 1000;
+}
+
+.modal-content {
+    position: relative;
+    width: 100%;
+}
+
+.modal-header {
+    padding: 1rem;
+    border-bottom: 1px solid rgba(93, 222, 244, 0.2);
+}
+
+.modal-header h4 {
+    margin: 0;
+    color: #5ddef4;
+}
+
+.modal-body {
+    padding: 1.5rem;
+    color: #fff;
+}
+
+.modal-footer {
+    padding: 1rem;
+    border-top: 1px solid rgba(93, 222, 244, 0.2);
+    display: flex;
+    justify-content: flex-end;
+    gap: 10px;
+}
+
+.reservation-details {
+    margin-bottom: 1.5rem;
+}
+
+.price-breakdown {
+    background: rgba(93, 222, 244, 0.1);
+    padding: 1rem;
+    border-radius: 6px;
+    margin-top: 1rem;
+}
+
+.price-breakdown .total-price {
+    font-size: 1.2rem;
+    font-weight: bold;
+    color: #5ddef4;
+    margin-top: 0.5rem;
+    padding-top: 0.5rem;
+    border-top: 1px solid rgba(93, 222, 244, 0.2);
+}
+
+.detail-row {
+    display: flex;
+    justify-content: space-between;
+    margin-bottom: 0.5rem;
+}
+
+.detail-label {
+    color: #5ddef4;
+}
+</style>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Set minimum date to today
+    const today = new Date();
+    const todayStr = today.toISOString().slice(0, 16);
+    
+    document.getElementById('pickup_date').min = todayStr;
+    document.getElementById('return_date').min = todayStr;
+
+    // Ensure return date is after pickup date and respect minimum rental duration
+    function updateMinReturnDate() {
+        const pickupDate = new Date(document.getElementById('pickup_date').value);
+        const rentalType = document.querySelector('input[name="rental_type"]:checked').value;
+        
+        if (rentalType === 'hourly') {
+            // For hourly rentals, add 2 hours minimum
+            const minReturn = new Date(pickupDate.getTime() + (2 * 60 * 60 * 1000));
+            document.getElementById('return_date').min = minReturn.toISOString().slice(0, 16);
+        } else {
+            // For daily rentals, use the pickup date as minimum
+            document.getElementById('return_date').min = document.getElementById('pickup_date').value;
+        }
+
+        // Adjust return date if it's less than minimum
+        if (new Date(document.getElementById('return_date').value) < new Date(document.getElementById('return_date').min)) {
+            document.getElementById('return_date').value = document.getElementById('return_date').min;
+        }
+    }
+
+    document.getElementById('pickup_date').addEventListener('change', updateMinReturnDate);
+    document.querySelectorAll('input[name="rental_type"]').forEach(radio => {
+        radio.addEventListener('change', updateMinReturnDate);
+    });
+
+    // Add animation to form sections
+    const sections = document.querySelectorAll('.form-section');
+    sections.forEach((section, index) => {
+        section.classList.add('animate__animated', 'animate__fadeInUp');
+        section.style.animationDelay = `${index * 0.2}s`;
+    });
+
+    // Handle form submission
+    const reservationForm = document.querySelector('.reservation-form');
+    reservationForm.addEventListener('submit', function(e) {
+        e.preventDefault();
+        formToSubmit = this;
+        
+        const car = document.getElementById('car');
+        const carText = car.options[car.selectedIndex].text;
+        const selectedOption = car.options[car.selectedIndex];
+        const pickupMethod = document.querySelector('input[name="pickup_method"]:checked').value;
+        const rentalType = document.querySelector('input[name="rental_type"]:checked').value;
+        const deliveryFee = pickupMethod === 'delivery' ? 20 : 0;
+
+        // Get the rates from the selected car
+        const hourlyRate = parseFloat(selectedOption.dataset.hourlyRate);
+        const dailyRate = parseFloat(selectedOption.dataset.dailyRate);
+
+        // Calculate duration and cost
+        const pickupDate = new Date(document.getElementById('pickup_date').value);
+        const returnDate = new Date(document.getElementById('return_date').value);
+        const diffTime = Math.abs(returnDate - pickupDate);
+        
+        let duration, rate, rentalCost;
+        if (rentalType === 'hourly') {
+            duration = Math.ceil(diffTime / (1000 * 60 * 60)); // Convert to hours
+            rate = hourlyRate;
+            if (duration < 2) {
+                alert('Minimum rental duration is 2 hours');
+                return;
+            }
+        } else {
+            duration = Math.ceil(diffTime / (1000 * 60 * 60 * 24)); // Convert to days
+            rate = dailyRate;
+        }
+
+        rentalCost = rate * duration;
+        const totalPrice = rentalCost + deliveryFee;
+
+        const details = {
+            car: carText,
+            pickupDate: document.getElementById('pickup_date').value,
+            returnDate: document.getElementById('return_date').value,
+            duration: duration,
+            rentalType: rentalType,
+            rate: rate,
+            pickupMethod: pickupMethod === 'setiawangsa' ? 'Pickup at Setiawangsa' : 'Delivery to UPNM',
+            rentalCost: rentalCost,
+            deliveryFee: deliveryFee,
+            totalPrice: totalPrice
+        };
+
+        showConfirmationModal(details);
+    });
+
+    // Close modal when clicking overlay
+    document.getElementById('modalOverlay').addEventListener('click', hideConfirmationModal);
+});
+
+let formToSubmit = null;
+
+function showConfirmationModal(details) {
+    const modal = document.getElementById('confirmationModal');
+    const overlay = document.getElementById('modalOverlay');
+    const modalBody = document.getElementById('confirmationModalBody');
+
+    const durationUnit = details.rentalType === 'hourly' ? 'hour(s)' : 'day(s)';
+    const rateUnit = details.rentalType === 'hourly' ? '/hour' : '/day';
+
+    modalBody.innerHTML = `
+        <div class="reservation-details">
+            <div class="detail-row">
+                <span class="detail-label">Car:</span>
+                <span>${details.car}</span>
+            </div>
+            <div class="detail-row">
+                <span class="detail-label">Rental Type:</span>
+                <span>${details.rentalType === 'hourly' ? 'Hourly Rental' : 'Daily Rental'}</span>
+            </div>
+            <div class="detail-row">
+                <span class="detail-label">Pickup Date:</span>
+                <span>${details.pickupDate}</span>
+            </div>
+            <div class="detail-row">
+                <span class="detail-label">Return Date:</span>
+                <span>${details.returnDate}</span>
+            </div>
+            <div class="detail-row">
+                <span class="detail-label">Duration:</span>
+                <span>${details.duration} ${durationUnit}</span>
+            </div>
+            <div class="detail-row">
+                <span class="detail-label">Pickup Method:</span>
+                <span>${details.pickupMethod}</span>
+            </div>
+        </div>
+        <div class="price-breakdown">
+            <div class="detail-row">
+                <span>Rental Cost (RM${details.rate}${rateUnit} × ${details.duration} ${durationUnit})</span>
+                <span>RM${details.rentalCost.toFixed(2)}</span>
+            </div>
+            <div class="detail-row">
+                <span>Delivery Fee</span>
+                <span>RM${details.deliveryFee.toFixed(2)}</span>
+            </div>
+            <div class="detail-row total-price">
+                <span>Total Price</span>
+                <span>RM${details.totalPrice.toFixed(2)}</span>
+            </div>
+        </div>
+    `;
+
+    modal.style.display = 'block';
+    overlay.style.display = 'block';
+}
+
+function hideConfirmationModal() {
+    document.getElementById('confirmationModal').style.display = 'none';
+    document.getElementById('modalOverlay').style.display = 'none';
+    formToSubmit = null;
+}
+
+function submitReservation() {
+    if (formToSubmit) {
+        formToSubmit.submit();
+    }
+}
+</script>
+{% endblock %} 
