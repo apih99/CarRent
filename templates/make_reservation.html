@@ -3,6 +3,9 @@
 {% block title %}Make Reservation{% endblock %}
 
 {% block content %}
+<!-- Include payment modal template -->
+{% include 'payment_modal.html' %}
+
 <div class="row justify-content-center">
     <div class="col-md-8">
         <div class="reservation-header text-center mb-4 animate__animated animate__fadeIn">
@@ -121,24 +124,24 @@
     </div>
 </div>
 
-<!-- Custom Confirmation Modal -->
-<div id="confirmationModal" class="custom-modal" style="display: none;">
-    <div class="modal-content">
-        <div class="modal-header">
-            <h4 class="text-glow">Confirm Reservation</h4>
-        </div>
-        <div class="modal-body" id="confirmationModalBody">
-            <!-- Content will be inserted by JavaScript -->
-        </div>
-        <div class="modal-footer">
-            <button type="button" class="btn btn-secondary" onclick="hideConfirmationModal()">Cancel</button>
-            <button type="button" class="btn btn-glow" onclick="submitReservation()">Confirm Reservation</button>
-        </div>
-    </div>
-</div>
+<!-- Add Font Awesome for icons -->
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css">
 
-<!-- Modal Overlay -->
-<div id="modalOverlay" class="modal-overlay" style="display: none;"></div>
+<!-- Add payment data if available -->
+{% if show_payment %}
+<script id="payment-data" type="application/json">
+{
+    "carModel": "{{ car.model }} ({{ car.year }})",
+    "rentalType": "{{ reservation.rental_type|capitalize }} Rental",
+    "duration": "{{ ((reservation.return_date - reservation.pickup_date).total_seconds() / 3600)|round|int if reservation.rental_type == 'hourly' else ((reservation.return_date - reservation.pickup_date).total_seconds() / 86400)|round|int }} {{ 'hour(s)' if reservation.rental_type == 'hourly' else 'day(s)' }}",
+    "pickup": "{{ reservation.pickup_date.strftime('%Y-%m-%d %H:%M') }}",
+    "return": "{{ reservation.return_date.strftime('%Y-%m-%d %H:%M') }}",
+    "delivery": "{{ 'Delivery to UPNM' if reservation.pickup_method == 'delivery' else 'Pickup at Setiawangsa' }}",
+    "total": "{{ (reservation.return_date - reservation.pickup_date).total_seconds() / (3600 if reservation.rental_type == 'hourly' else 86400) * (car.hourly_rate if reservation.rental_type == 'hourly' else car.daily_rate) + reservation.delivery_fee }}",
+    "paymentDeadline": "{{ payment_deadline }}"
+}
+</script>
+{% endif %}
 
 <style>
 /* Glowing text effect */
@@ -391,131 +394,33 @@ document.addEventListener('DOMContentLoaded', function() {
         section.style.animationDelay = `${index * 0.2}s`;
     });
 
-    // Handle form submission
+    // Handle form validation
     const reservationForm = document.querySelector('.reservation-form');
     reservationForm.addEventListener('submit', function(e) {
-        e.preventDefault();
-        formToSubmit = this;
-        
-        const car = document.getElementById('car');
-        const carText = car.options[car.selectedIndex].text;
-        const selectedOption = car.options[car.selectedIndex];
-        const pickupMethod = document.querySelector('input[name="pickup_method"]:checked').value;
-        const rentalType = document.querySelector('input[name="rental_type"]:checked').value;
-        const deliveryFee = pickupMethod === 'delivery' ? 20 : 0;
-
-        // Get the rates from the selected car
-        const hourlyRate = parseFloat(selectedOption.dataset.hourlyRate);
-        const dailyRate = parseFloat(selectedOption.dataset.dailyRate);
-
-        // Calculate duration and cost
         const pickupDate = new Date(document.getElementById('pickup_date').value);
         const returnDate = new Date(document.getElementById('return_date').value);
-        const diffTime = Math.abs(returnDate - pickupDate);
+        const rentalType = document.querySelector('input[name="rental_type"]:checked').value;
         
-        let duration, rate, rentalCost;
-        if (rentalType === 'hourly') {
-            duration = Math.ceil(diffTime / (1000 * 60 * 60)); // Convert to hours
-            rate = hourlyRate;
-            if (duration < 2) {
-                alert('Minimum rental duration is 2 hours');
-                return;
-            }
-        } else {
-            duration = Math.ceil(diffTime / (1000 * 60 * 60 * 24)); // Convert to days
-            rate = dailyRate;
+        // Calculate duration
+        const diffTime = Math.abs(returnDate - pickupDate);
+        const duration = rentalType === 'hourly' 
+            ? Math.ceil(diffTime / (1000 * 60 * 60))  // hours
+            : Math.ceil(diffTime / (1000 * 60 * 60 * 24));  // days
+
+        // Validate minimum duration
+        if (rentalType === 'hourly' && duration < 2) {
+            e.preventDefault();
+            alert('Minimum rental duration is 2 hours');
+            return;
         }
-
-        rentalCost = rate * duration;
-        const totalPrice = rentalCost + deliveryFee;
-
-        const details = {
-            car: carText,
-            pickupDate: document.getElementById('pickup_date').value,
-            returnDate: document.getElementById('return_date').value,
-            duration: duration,
-            rentalType: rentalType,
-            rate: rate,
-            pickupMethod: pickupMethod === 'setiawangsa' ? 'Pickup at Setiawangsa' : 'Delivery to UPNM',
-            rentalCost: rentalCost,
-            deliveryFee: deliveryFee,
-            totalPrice: totalPrice
-        };
-
-        showConfirmationModal(details);
     });
 
-    // Close modal when clicking overlay
-    document.getElementById('modalOverlay').addEventListener('click', hideConfirmationModal);
-});
-
-let formToSubmit = null;
-
-function showConfirmationModal(details) {
-    const modal = document.getElementById('confirmationModal');
-    const overlay = document.getElementById('modalOverlay');
-    const modalBody = document.getElementById('confirmationModalBody');
-
-    const durationUnit = details.rentalType === 'hourly' ? 'hour(s)' : 'day(s)';
-    const rateUnit = details.rentalType === 'hourly' ? '/hour' : '/day';
-
-    modalBody.innerHTML = `
-        <div class="reservation-details">
-            <div class="detail-row">
-                <span class="detail-label">Car:</span>
-                <span>${details.car}</span>
-            </div>
-            <div class="detail-row">
-                <span class="detail-label">Rental Type:</span>
-                <span>${details.rentalType === 'hourly' ? 'Hourly Rental' : 'Daily Rental'}</span>
-            </div>
-            <div class="detail-row">
-                <span class="detail-label">Pickup Date:</span>
-                <span>${details.pickupDate}</span>
-            </div>
-            <div class="detail-row">
-                <span class="detail-label">Return Date:</span>
-                <span>${details.returnDate}</span>
-            </div>
-            <div class="detail-row">
-                <span class="detail-label">Duration:</span>
-                <span>${details.duration} ${durationUnit}</span>
-            </div>
-            <div class="detail-row">
-                <span class="detail-label">Pickup Method:</span>
-                <span>${details.pickupMethod}</span>
-            </div>
-        </div>
-        <div class="price-breakdown">
-            <div class="detail-row">
-                <span>Rental Cost (RM${details.rate}${rateUnit} × ${details.duration} ${durationUnit})</span>
-                <span>RM${details.rentalCost.toFixed(2)}</span>
-            </div>
-            <div class="detail-row">
-                <span>Delivery Fee</span>
-                <span>RM${details.deliveryFee.toFixed(2)}</span>
-            </div>
-            <div class="detail-row total-price">
-                <span>Total Price</span>
-                <span>RM${details.totalPrice.toFixed(2)}</span>
-            </div>
-        </div>
-    `;
-
-    modal.style.display = 'block';
-    overlay.style.display = 'block';
-}
-
-function hideConfirmationModal() {
-    document.getElementById('confirmationModal').style.display = 'none';
-    document.getElementById('modalOverlay').style.display = 'none';
-    formToSubmit = null;
-}
-
-function submitReservation() {
-    if (formToSubmit) {
-        formToSubmit.submit();
+    // Show payment modal if payment data exists
+    const paymentDataElement = document.getElementById('payment-data');
+    if (paymentDataElement) {
+        const paymentData = JSON.parse(paymentDataElement.textContent);
+        window.showPaymentModal(paymentData);
     }
-}
+});
 </script>
 {% endblock %} 

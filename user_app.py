@@ -1,7 +1,7 @@
 from flask import Flask, render_template, request, redirect, url_for, flash, jsonify
 from datetime import datetime, timedelta
 import config
-from config import db, Car, Reservation
+from config import db, Car, Reservation, AdminSettings
 
 app = Flask(__name__)
 config.init_app(app)
@@ -23,6 +23,7 @@ def make_reservation():
         pickup_date = datetime.strptime(request.form.get('pickup_date'), '%Y-%m-%dT%H:%M')
         return_date = datetime.strptime(request.form.get('return_date'), '%Y-%m-%dT%H:%M')
         pickup_method = request.form.get('pickup_method')
+        rental_type = request.form.get('rental_type', 'daily')
         delivery_fee = 20.0 if pickup_method == 'delivery' else 0.0
 
         # Check if car is available for the selected dates
@@ -45,16 +46,47 @@ def make_reservation():
             return_date=return_date,
             pickup_method=pickup_method,
             delivery_address='UPNM' if pickup_method == 'delivery' else None,
-            delivery_fee=delivery_fee
+            delivery_fee=delivery_fee,
+            rental_type=rental_type
         )
         db.session.add(reservation)
         db.session.commit()
-        flash('Reservation submitted successfully! Waiting for approval.', 'success')
-        return redirect(url_for('index'))
+
+        return redirect(url_for('payment_confirmation', reservation_id=reservation.id))
 
     # Get only available cars
     cars = Car.query.all()
-    return render_template('make_reservation.html', cars=cars)
+    admin_settings = AdminSettings.query.first()
+    return render_template('make_reservation.html', cars=cars, admin_settings=admin_settings)
+
+@app.route('/payment_confirmation/<int:reservation_id>')
+def payment_confirmation(reservation_id):
+    reservation = Reservation.query.get_or_404(reservation_id)
+    car = Car.query.get(reservation.car_id)
+    admin_settings = AdminSettings.query.first()
+    
+    # Calculate total amount
+    duration = (reservation.return_date - reservation.pickup_date).total_seconds()
+    if reservation.rental_type == 'hourly':
+        duration = duration / 3600  # Convert to hours
+        rate = car.hourly_rate
+    else:
+        duration = duration / 86400  # Convert to days
+        rate = car.daily_rate
+    
+    total_amount = (duration * rate) + reservation.delivery_fee
+    
+    # Set payment deadline to 1 hour from now
+    payment_deadline = datetime.now() + timedelta(hours=1)
+
+    return render_template(
+        'payment_confirmation.html',
+        reservation=reservation,
+        car=car,
+        admin_settings=admin_settings,
+        total_amount=total_amount,
+        payment_deadline=payment_deadline.isoformat()
+    )
 
 @app.route('/check_availability/<int:car_id>')
 def check_availability(car_id):

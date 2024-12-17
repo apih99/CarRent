@@ -1,13 +1,26 @@
 from flask import Flask, render_template, request, redirect, url_for, flash
 from datetime import datetime
 import config
-from config import db, Car, Reservation
+from config import db, Car, Reservation, AdminSettings
 from functools import wraps
 from email_service import mail, send_reservation_notification
+import os
+from werkzeug.utils import secure_filename
 
 app = Flask(__name__)
 config.init_app(app)
 mail.init_app(app)
+
+# Upload folder configuration
+UPLOAD_FOLDER = 'static/uploads'
+ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg'}
+app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
+
+# Create upload folder if it doesn't exist
+os.makedirs(app.config['UPLOAD_FOLDER'], exist_ok=True)
+
+def allowed_file(filename):
+    return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
 
 # Simple admin authentication (you might want to enhance this in production)
 ADMIN_USERNAME = "admin"
@@ -31,6 +44,42 @@ def admin():
     reservations = Reservation.query.order_by(Reservation.created_at.desc()).all()
     return render_template('admin.html', cars=cars, reservations=reservations)
 
+@app.route('/settings', methods=['GET', 'POST'])
+@admin_required
+def admin_settings():
+    settings = AdminSettings.query.first()
+    if not settings:
+        settings = AdminSettings()
+        db.session.add(settings)
+        db.session.commit()
+
+    if request.method == 'POST':
+        # Handle QR code upload
+        if 'payment_qr' in request.files:
+            file = request.files['payment_qr']
+            if file and file.filename and allowed_file(file.filename):
+                # Delete old QR code if it exists
+                if settings.payment_qr_image:
+                    old_file_path = os.path.join(app.config['UPLOAD_FOLDER'], settings.payment_qr_image)
+                    if os.path.exists(old_file_path):
+                        os.remove(old_file_path)
+                
+                # Save new QR code
+                filename = secure_filename(file.filename)
+                file.save(os.path.join(app.config['UPLOAD_FOLDER'], filename))
+                settings.payment_qr_image = filename
+
+        # Update WhatsApp number
+        whatsapp_number = request.form.get('whatsapp_number')
+        if whatsapp_number:
+            settings.whatsapp_number = whatsapp_number
+
+        db.session.commit()
+        flash('Settings updated successfully!', 'success')
+        return redirect(url_for('admin_settings'))
+
+    return render_template('admin_settings.html', settings=settings)
+
 @app.route('/add_car', methods=['POST'])
 @admin_required
 def add_car():
@@ -38,12 +87,14 @@ def add_car():
     year = request.form.get('year')
     license_plate = request.form.get('license_plate')
     daily_rate = request.form.get('daily_rate')
+    hourly_rate = request.form.get('hourly_rate')
 
     car = Car(
         model=model,
         year=year,
         license_plate=license_plate,
-        daily_rate=daily_rate
+        daily_rate=daily_rate,
+        hourly_rate=hourly_rate
     )
     db.session.add(car)
     try:

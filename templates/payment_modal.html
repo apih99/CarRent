@@ -1,0 +1,245 @@
+<!-- Payment Modal -->
+<div class="modal fade" id="paymentModal" tabindex="-1" aria-labelledby="paymentModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title text-glow" id="paymentModalLabel">Complete Your Payment</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <!-- Reservation Summary -->
+                <div class="card mb-4">
+                    <div class="card-header">
+                        <h6 class="mb-0 text-glow">Reservation Summary</h6>
+                    </div>
+                    <div class="card-body">
+                        <div class="row">
+                            <div class="col-md-6">
+                                <p><strong class="text-info">Car:</strong> <span id="summaryCarModel" class="text-white"></span></p>
+                                <p><strong class="text-info">Rental Type:</strong> <span id="summaryRentalType" class="text-white"></span></p>
+                                <p><strong class="text-info">Duration:</strong> <span id="summaryDuration" class="text-white"></span></p>
+                            </div>
+                            <div class="col-md-6">
+                                <p><strong class="text-info">Pickup:</strong> <span id="summaryPickup" class="text-white"></span></p>
+                                <p><strong class="text-info">Return:</strong> <span id="summaryReturn" class="text-white"></span></p>
+                                <p><strong class="text-info">Delivery:</strong> <span id="summaryDelivery" class="text-white"></span></p>
+                            </div>
+                        </div>
+                        <div class="alert alert-info mt-3">
+                            <h4 class="mb-0">Total Amount: RM<span id="summaryTotal"></span></h4>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Payment Instructions -->
+                <div class="row">
+                    <div class="col-md-6">
+                        <div class="card">
+                            <div class="card-header">
+                                <h6 class="mb-0 text-glow">Bank Transfer QR Code</h6>
+                            </div>
+                            <div class="card-body text-center">
+                                {% if admin_settings.payment_qr_image %}
+                                <img src="{{ url_for('static', filename='uploads/' + admin_settings.payment_qr_image) }}" 
+                                     alt="Payment QR Code" class="img-fluid payment-qr">
+                                {% else %}
+                                <div class="alert alert-warning">
+                                    <i class="fas fa-exclamation-triangle me-2"></i>
+                                    QR code not available. Please contact admin.
+                                </div>
+                                {% endif %}
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="card">
+                            <div class="card-header">
+                                <h6 class="mb-0 text-glow">Payment Instructions</h6>
+                            </div>
+                            <div class="card-body">
+                                <ol class="mb-0 text-white">
+                                    <li>Scan the QR code to make payment</li>
+                                    <li>Take a screenshot of payment proof</li>
+                                    <li>Send proof via WhatsApp within 1 hour</li>
+                                    <li>Wait for admin approval</li>
+                                </ol>
+                                {% if admin_settings.whatsapp_number %}
+                                <a href="https://wa.me/{{ admin_settings.whatsapp_number.replace('+', '') }}?text=Hi,%20I%20would%20like%20to%20send%20payment%20proof%20for%20my%20car%20rental%20reservation." 
+                                   class="btn btn-success w-100 mt-3" target="_blank" rel="noopener noreferrer">
+                                    <i class="fab fa-whatsapp me-2"></i>Send Payment Proof via WhatsApp
+                                </a>
+                                {% endif %}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Payment Timer -->
+                <div class="alert alert-warning mt-4">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <span>
+                            <i class="fas fa-clock me-2"></i>
+                            <strong>Time Remaining for Payment:</strong>
+                        </span>
+                        <span id="paymentTimer" class="h4 mb-0"></span>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Initialize payment modal
+    const paymentModal = new bootstrap.Modal(document.getElementById('paymentModal'), {
+        backdrop: 'static',  // Prevent closing when clicking outside
+        keyboard: false     // Prevent closing with keyboard
+    });
+
+    // Function to show payment modal with data
+    window.showPaymentModal = function(paymentData) {
+        // Update summary fields
+        document.getElementById('summaryCarModel').textContent = paymentData.carModel;
+        document.getElementById('summaryRentalType').textContent = paymentData.rentalType;
+        document.getElementById('summaryDuration').textContent = paymentData.duration;
+        document.getElementById('summaryPickup').textContent = paymentData.pickup;
+        document.getElementById('summaryReturn').textContent = paymentData.return;
+        document.getElementById('summaryDelivery').textContent = paymentData.delivery;
+        document.getElementById('summaryTotal').textContent = parseFloat(paymentData.total).toFixed(2);
+
+        // Start timer
+        if (paymentData.paymentDeadline) {
+            startTimer(new Date(paymentData.paymentDeadline));
+        }
+
+        // Show modal
+        paymentModal.show();
+    };
+
+    // Timer function
+    function startTimer(deadline) {
+        const timerElement = document.getElementById('paymentTimer');
+        if (!timerElement) return;
+
+        function updateTimer() {
+            const now = new Date().getTime();
+            const timeLeft = deadline.getTime() - now;
+
+            if (timeLeft <= 0) {
+                clearInterval(timerInterval);
+                timerElement.innerHTML = '<span class="text-danger">Time Expired!</span>';
+                return;
+            }
+
+            const minutes = Math.floor((timeLeft % (1000 * 60 * 60)) / (1000 * 60));
+            const seconds = Math.floor((timeLeft % (1000 * 60)) / 1000);
+            timerElement.textContent = `${minutes}:${seconds.toString().padStart(2, '0')}`;
+        }
+
+        const timerInterval = setInterval(updateTimer, 1000);
+        updateTimer();
+    }
+
+    // Check for payment data and show modal if exists
+    const paymentDataElement = document.getElementById('payment-data');
+    if (paymentDataElement) {
+        try {
+            const paymentData = JSON.parse(paymentDataElement.textContent);
+            showPaymentModal(paymentData);
+        } catch (error) {
+            console.error('Error parsing payment data:', error);
+        }
+    }
+});
+</script>
+
+<style>
+.modal-content {
+    background-color: #1a1a1a;
+    color: #fff;
+    border: 1px solid rgba(93, 222, 244, 0.2);
+}
+
+.modal-header, .modal-footer {
+    border-color: rgba(255, 255, 255, 0.1);
+}
+
+.card {
+    background-color: #1a1a1a;
+    border: 1px solid rgba(93, 222, 244, 0.2);
+    margin-bottom: 1rem;
+}
+
+.card-header {
+    background-color: rgba(93, 222, 244, 0.05);
+    border-bottom: 1px solid rgba(93, 222, 244, 0.2);
+    padding: 0.75rem 1rem;
+}
+
+.alert-info {
+    background-color: rgba(93, 222, 244, 0.1);
+    border-color: rgba(93, 222, 244, 0.2);
+    color: #5ddef4;
+}
+
+.alert-warning {
+    background-color: rgba(255, 193, 7, 0.1);
+    border-color: rgba(255, 193, 7, 0.2);
+    color: #ffc107;
+}
+
+.text-info { color: #5ddef4 !important; }
+.text-white { color: #fff !important; }
+.text-glow { text-shadow: 0 0 10px rgba(93, 222, 244, 0.5); }
+
+.btn-success {
+    background-color: #25d366;
+    border-color: #25d366;
+    transition: all 0.3s ease;
+}
+
+.btn-success:hover {
+    background-color: #128c7e;
+    border-color: #128c7e;
+    transform: translateY(-1px);
+}
+
+.btn-close-white {
+    filter: invert(1) grayscale(100%) brightness(200%);
+}
+
+#paymentTimer {
+    font-weight: bold;
+    font-family: monospace;
+}
+
+.payment-qr {
+    max-width: 200px;
+    border-radius: 8px;
+    padding: 8px;
+    background: white;
+}
+
+ol li {
+    margin-bottom: 0.75rem;
+    line-height: 1.4;
+}
+
+.modal-backdrop.show {
+    opacity: 0.7;
+}
+
+@media (max-width: 768px) {
+    .modal-dialog {
+        margin: 0.5rem;
+    }
+    
+    .row > div {
+        margin-bottom: 1rem;
+    }
+}
+</style> 

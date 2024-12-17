@@ -11,6 +11,11 @@ MAIL_USERNAME = 'hafiz.kelkes@gmail.com'  # Replace with your Gmail address
 MAIL_PASSWORD = 'wuom blzl ilfr wyye'  # Replace with your Gmail app password
 MAIL_DEFAULT_SENDER = 'wuom blzl ilfr wyye'  # Replace with your Gmail address
 
+class AdminSettings(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    payment_qr_image = db.Column(db.String(255), nullable=True)
+    whatsapp_number = db.Column(db.String(20), nullable=True)
+
 class Car(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     model = db.Column(db.String(100), nullable=False)
@@ -50,4 +55,9 @@ def init_app(app):
     
     db.init_app(app)
     with app.app_context():
-        db.create_all() 
+        db.create_all()
+        # Create default admin settings if none exist
+        if not AdminSettings.query.first():
+            default_settings = AdminSettings()
+            db.session.add(default_settings)
+            db.session.commit()
