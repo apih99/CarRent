@@ -14,57 +14,69 @@
 <div class="row mb-4">
     <div class="col-12">
         <div class="card">
-            <div class="card-header bg-dark d-flex justify-content-between align-items-center">
-                <h3 class="card-title mb-0 text-white">Car Availability</h3>
-                <div class="text-info">
-                    Next 7 Days Availability
+            <div class="card-header bg-dark">
+                <div class="d-flex justify-content-between align-items-center mb-3">
+                    <h3 class="card-title mb-0 text-white">Car Availability</h3>
+                    <div class="btn-group" role="group">
+                        <button type="button" class="btn btn-info active" id="dailyViewBtn">Daily View</button>
+                        <button type="button" class="btn btn-outline-info" id="hourlyViewBtn">Hourly View</button>
+                    </div>
+                </div>
+                <div class="d-flex justify-content-between align-items-center">
+                    <div class="text-info" id="viewDescription">
+                        Next 7 Days Availability
+                    </div>
+                    <div class="date-navigation">
+                        <button class="btn btn-sm btn-outline-info me-2" id="prevDate">
+                            <i class="fas fa-chevron-left"></i>
+                        </button>
+                        <span class="text-info" id="dateRange"></span>
+                        <button class="btn btn-sm btn-outline-info ms-2" id="nextDate">
+                            <i class="fas fa-chevron-right"></i>
+                        </button>
+                    </div>
                 </div>
             </div>
             <div class="card-body">
                 {% if cars %}
-                <div class="table-responsive">
-                    <table class="table table-dark table-hover">
-                        <thead>
-                            <tr class="text-info">
-                                <th style="min-width: 200px;">Car</th>
-                                {% for date in dates %}
-                                <th class="text-center">{{ date }}</th>
-                                {% endfor %}
-                                <th class="text-center">Action</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {% for car in cars %}
-                            <tr>
-                                <td>
-                                    <div class="car-info">
-                                        <h5 class="car-model mb-1 text-white">{{ car.model }}</h5>
-                                        <div class="car-details">
-                                            <span class="badge bg-info me-2">{{ car.year }}</span>
-                                            <span class="badge bg-primary me-2">RM{{ car.daily_rate }}/day</span>
-                                            <span class="badge bg-primary me-2">RM{{ car.hourly_rate }}/hour</span>
-                                            <small class="text-info d-block mt-1">{{ car.license_plate }}</small>
-                                        </div>
-                                    </div>
-                                </td>
-                                {% for date in dates %}
-                                <td class="text-center availability-cell" 
-                                    data-car-id="{{ car.id }}" 
-                                    data-date="{{ date }}">
-                                    <div class="spinner-border spinner-border-sm text-info" role="status">
-                                        <span class="visually-hidden">Loading...</span>
-                                    </div>
-                                </td>
-                                {% endfor %}
-                                <td class="text-center">
-                                    <a href="{{ url_for('make_reservation') }}" class="btn btn-info btn-sm">
-                                        <i class="fas fa-calendar-plus"></i> Reserve
-                                    </a>
-                                </td>
-                            </tr>
-                            {% endfor %}
-                        </tbody>
-                    </table>
+                <div class="car-selector mb-4">
+                    <select class="form-select custom-select" id="carSelector">
+                        {% for car in cars %}
+                        <option value="{{ car.id }}" 
+                                data-model="{{ car.model }}"
+                                data-year="{{ car.year }}"
+                                data-daily-rate="{{ car.daily_rate }}"
+                                data-hourly-rate="{{ car.hourly_rate }}">
+                            {{ car.model }} ({{ car.year }})
+                        </option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="selected-car-info mb-4">
+                    <div class="car-header">
+                        <h5 class="car-model text-white" id="selectedCarModel"></h5>
+                        <span class="badge bg-info" id="selectedCarYear"></span>
+                    </div>
+                    <div class="car-rates">
+                        <div class="rate-badge">
+                            <i class="fas fa-calendar-day"></i>
+                            <span id="selectedCarDailyRate"></span>
+                        </div>
+                        <div class="rate-badge">
+                            <i class="fas fa-clock"></i>
+                            <span id="selectedCarHourlyRate"></span>
+                        </div>
+                    </div>
+                </div>
+                <div class="car-availability" id="availabilityTimeline">
+                    <div class="availability-timeline">
+                        <!-- Timeline slots will be populated by JavaScript -->
+                    </div>
+                </div>
+                <div class="car-actions text-center mt-4">
+                    <a href="{{ url_for('make_reservation') }}" class="btn btn-info">
+                        <i class="fas fa-calendar-plus"></i> Reserve Now
+                    </a>
                 </div>
                 {% else %}
                 <div class="text-center py-5">
@@ -98,103 +110,278 @@
 <!-- Add Font Awesome for icons -->
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css">
 
-<script>
-document.addEventListener('DOMContentLoaded', function() {
-    const cells = document.querySelectorAll('.availability-cell');
-    
-    cells.forEach(cell => {
-        const carId = cell.dataset.carId;
-        const date = cell.dataset.date;
-        
-        // Check availability for each cell
-        fetch(`/check_availability/${carId}`)
-            .then(response => response.json())
-            .then(data => {
-                const isAvailable = !data.reserved_dates.some(reservation => {
-                    const start = new Date(reservation.start);
-                    const end = new Date(reservation.end);
-                    const checkDate = new Date(date);
-                    return checkDate >= start && checkDate <= end;
-                });
-
-                // Remove loading spinner
-                cell.innerHTML = isAvailable 
-                    ? '<span class="badge bg-success"><i class="fas fa-check"></i> Available</span>'
-                    : '<span class="badge bg-danger"><i class="fas fa-times"></i> Reserved</span>';
-            })
-            .catch(error => {
-                cell.innerHTML = '<span class="badge bg-warning"><i class="fas fa-exclamation-triangle"></i> Error</span>';
-                console.error('Error checking availability:', error);
-            });
-    });
-});
-</script>
-
 <style>
 :root {
     --bright-text: #ffffff;
     --info-text: #5ddef4;
     --highlight-text: #f7f7f7;
+    --card-bg: #2c3034;
+    --hover-bg: rgba(93, 222, 244, 0.1);
 }
 
-.text-white {
-    color: var(--bright-text) !important;
+/* Car Grid Layout */
+.car-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(500px, 1fr));
+    gap: 2rem;
+    padding: 1.5rem;
 }
 
-.text-info {
-    color: var(--info-text) !important;
+/* Car Card Styling */
+.car-card {
+    background: var(--card-bg);
+    border-radius: 12px;
+    padding: 2rem;
+    transition: all 0.3s ease;
+    border: 1px solid rgba(93, 222, 244, 0.1);
+    min-width: 0;
 }
 
-.table td, .table th {
-    vertical-align: middle;
-    color: var(--bright-text);
+.car-card:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 8px 24px rgba(93, 222, 244, 0.15);
 }
 
-.table thead th {
-    color: var(--info-text);
-    font-weight: 600;
-}
-
-.availability-cell {
-    min-width: 120px;
-}
-
-.card-header {
-    border-bottom: 1px solid #404040;
-}
-
-.badge {
-    padding: 0.5em 1em;
-    font-weight: 500;
-}
-
-.car-info {
-    padding: 0.5rem 0;
+.car-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 1.5rem;
 }
 
 .car-model {
+    font-size: 1.4rem;
+    font-weight: 600;
+    margin: 0;
+}
+
+.car-rates {
+    display: flex;
+    gap: 1rem;
+    margin-bottom: 2rem;
+}
+
+.rate-badge {
+    background: rgba(93, 222, 244, 0.1);
+    padding: 0.8rem 1.2rem;
+    border-radius: 8px;
+    color: var(--info-text);
+    font-size: 1rem;
+    display: flex;
+    align-items: center;
+    gap: 0.8rem;
+    flex: 1;
+    justify-content: center;
+}
+
+.rate-badge i {
     font-size: 1.1rem;
-    margin-bottom: 0.3rem;
 }
 
-.car-details {
-    font-size: 0.9rem;
+.availability-timeline {
+    display: grid;
+    grid-template-rows: auto 1fr;
+    margin: 1rem 0;
+    background: rgba(255, 255, 255, 0.1);
+    padding: 1.5rem;
+    border-radius: 10px;
 }
 
-/* Hover effect for table rows */
-.table-hover tbody tr:hover {
-    background-color: rgba(93, 222, 244, 0.1) !important;
-    transition: background-color 0.2s ease;
+.timeline-labels {
+    display: grid;
+    grid-template-columns: repeat(7, 1fr);
+    gap: 4px;
+    margin-bottom: 1rem;
 }
 
-/* Responsive adjustments */
+.timeline-labels.hourly {
+    display: grid;
+    grid-template-rows: auto;
+    grid-template-columns: repeat(12, 1fr);
+    gap: 6px;
+    margin-bottom: 0.5rem;
+}
+
+.timeline-label {
+    font-size: 0.85rem;
+    color: var(--info-text);
+    text-align: center;
+    padding: 0.5rem;
+    background: rgba(93, 222, 244, 0.05);
+    border-radius: 4px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    min-height: 60px;
+}
+
+.timeline-label.hourly {
+    font-size: 1rem;
+    padding: 0.4rem;
+    background: rgba(93, 222, 244, 0.1);
+    border-radius: 6px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 500;
+    height: 35px;
+}
+
+.timeline-slots {
+    display: grid;
+    grid-template-columns: repeat(7, 1fr);
+    gap: 4px;
+}
+
+.timeline-slots.hourly {
+    display: grid;
+    grid-template-rows: auto;
+    grid-template-columns: repeat(12, 1fr);
+    gap: 6px;
+    margin-bottom: 1rem;
+}
+
+.timeline-slots.hourly .time-slot {
+    height: 35px;
+    border-radius: 6px;
+    position: relative;
+}
+
+.timeline-labels.hourly > div:nth-child(n+13),
+.timeline-slots.hourly > div:nth-child(n+13) {
+    margin-top: 0;
+}
+
+/* Add custom scrollbar for hourly view */
+.timeline-labels.hourly,
+.timeline-slots.hourly {
+    overflow-x: visible;
+    padding-bottom: 0;
+}
+
+/* Specific styling for hourly time slots */
+.timeline-slots.hourly .time-slot {
+    height: 50px;
+    min-width: 60px; /* Match the label width */
+    border-radius: 8px;
+    position: relative;
+}
+
+.timeline-slots.hourly .time-slot::after {
+    font-size: 0.85rem;
+}
+
+/* Container for better scrolling behavior */
+.availability-timeline-container {
+    position: relative;
+    width: 100%;
+}
+
+.availability-timeline-container::after {
+    content: '';
+    position: absolute;
+    top: 0;
+    right: 0;
+    height: 100%;
+    width: 30px;
+    background: linear-gradient(to right, transparent, var(--card-bg));
+    pointer-events: none;
+    opacity: 0.8;
+    display: none;
+}
+
+.availability-timeline-container.has-overflow::after {
+    display: block;
+}
+
+/* Time Slot Styling */
+.time-slot {
+    height: 40px;
+    border-radius: 6px;
+    transition: all 0.3s ease;
+    cursor: pointer;
+    position: relative;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.8rem;
+    font-weight: 500;
+}
+
+.time-slot.available {
+    background: linear-gradient(145deg, #00ff88, #00cc6e);
+    color: #006637;
+}
+
+.time-slot.reserved {
+    background: linear-gradient(145deg, #ff4444, #cc3636);
+    color: #ffffff;
+}
+
+.time-slot:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+}
+
+.time-slot::after {
+    content: attr(data-status);
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    font-size: 0.75rem;
+    white-space: nowrap;
+    font-weight: 600;
+}
+
+/* View Toggle Buttons */
+.btn-group .btn {
+    border-radius: 20px;
+    padding: 0.5rem 1.5rem;
+}
+
+.btn-outline-info {
+    color: var(--info-text);
+    border-color: var(--info-text);
+}
+
+.btn-outline-info:hover {
+    background-color: var(--info-text);
+    color: var(--card-bg);
+}
+
+/* Date Navigation */
+.date-navigation {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+}
+
+/* Responsive Design */
 @media (max-width: 768px) {
-    .table-responsive {
-        overflow-x: auto;
+    .car-grid {
+        grid-template-columns: 1fr;
+        padding: 1rem;
     }
     
-    .availability-cell {
-        min-width: 100px;
+    .timeline-label {
+        font-size: 0.75rem;
+        min-height: 50px;
+        padding: 0.3rem;
+    }
+    
+    .timeline-label.hourly {
+        min-height: 35px;
+    }
+    
+    .time-slot {
+        height: 35px;
+    }
+    
+    .rate-badge {
+        padding: 0.6rem 0.8rem;
+        font-size: 0.9rem;
     }
 }
 
@@ -207,62 +394,277 @@ document.addEventListener('DOMContentLoaded', function() {
     margin-right: 4px;
 }
 
-/* Card hover effect */
-.card {
-    transition: transform 0.2s ease;
+/* Car Selector Styling */
+.car-selector {
+    max-width: 400px;
+    margin: 0 auto;
 }
 
-.card:hover {
-    transform: translateY(-2px);
+.custom-select {
+    background-color: var(--card-bg);
+    color: var(--info-text);
+    border: 1px solid rgba(93, 222, 244, 0.2);
+    padding: 0.8rem;
+    border-radius: 8px;
+    font-size: 1.1rem;
+    transition: all 0.3s ease;
 }
 
-/* Button styling */
-.btn-info {
-    background-color: var(--info-text);
-    border: none;
-    color: #000;
-    font-weight: 500;
+.custom-select:focus {
+    border-color: var(--info-text);
+    box-shadow: 0 0 0 0.2rem rgba(93, 222, 244, 0.25);
+    outline: none;
 }
 
-.btn-info:hover {
-    background-color: #4bc8db;
-    color: #000;
-    transform: translateY(-1px);
+.custom-select option {
+    background-color: var(--card-bg);
+    color: var(--info-text);
+    padding: 0.8rem;
 }
 
-/* Status badges */
-.badge.bg-success {
-    background-color: #00ff88 !important;
-    color: #000;
-}
-
-.badge.bg-danger {
-    background-color: #ff4444 !important;
-    color: #fff;
-}
-
-.badge.bg-warning {
-    background-color: #ffbb33 !important;
-    color: #000;
-}
-
-.badge.bg-info {
-    background-color: var(--info-text) !important;
-    color: #000;
-}
-
-.badge.bg-primary {
-    background-color: #3399ff !important;
-    color: #fff;
-}
-
-/* Table styling */
-.table-dark {
-    background-color: transparent;
-}
-
-.table-dark td, .table-dark th {
-    border-color: #404040;
+.selected-car-info {
+    max-width: 600px;
+    margin: 0 auto;
+    padding: 1.5rem;
+    background: rgba(93, 222, 244, 0.05);
+    border-radius: 10px;
+    border: 1px solid rgba(93, 222, 244, 0.1);
 }
 </style>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    let currentView = 'daily';
+    let currentDate = new Date();
+    
+    const dailyViewBtn = document.getElementById('dailyViewBtn');
+    const hourlyViewBtn = document.getElementById('hourlyViewBtn');
+    const viewDescription = document.getElementById('viewDescription');
+    const dateRange = document.getElementById('dateRange');
+    const carSelector = document.getElementById('carSelector');
+    
+    function formatDate(date) {
+        return date.toLocaleDateString('en-US', {
+            weekday: 'short',
+            month: 'short',
+            day: 'numeric'
+        });
+    }
+    
+    function updateDateRange() {
+        if (currentView === 'daily') {
+            const endDate = new Date(currentDate);
+            endDate.setDate(endDate.getDate() + 6);
+            dateRange.textContent = `${formatDate(currentDate)} - ${formatDate(endDate)}`;
+            viewDescription.textContent = 'Next 7 Days Availability';
+        } else {
+            dateRange.textContent = formatDate(currentDate);
+            viewDescription.textContent = '24 Hours Availability';
+        }
+    }
+    
+    function updateAvailability() {
+        const timeline = document.querySelector('.availability-timeline');
+        const selectedCarId = carSelector.value;
+        timeline.innerHTML = '';
+        
+        if (currentView === 'daily') {
+            // Create containers for daily view
+            const timelineLabels = document.createElement('div');
+            timelineLabels.className = 'timeline-labels';
+            
+            const timelineSlots = document.createElement('div');
+            timelineSlots.className = 'timeline-slots';
+            
+            timeline.appendChild(timelineLabels);
+            timeline.appendChild(timelineSlots);
+            
+            // Create daily slots
+            const slots = 7;
+            for (let i = 0; i < slots; i++) {
+                const label = document.createElement('div');
+                label.className = 'timeline-label';
+                
+                const date = new Date(currentDate);
+                date.setDate(date.getDate() + i);
+                const dayDiv = document.createElement('div');
+                dayDiv.className = 'day';
+                dayDiv.textContent = date.toLocaleDateString('en-US', { weekday: 'short' });
+                const dateDiv = document.createElement('div');
+                dateDiv.className = 'date';
+                dateDiv.textContent = date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+                label.appendChild(dayDiv);
+                label.appendChild(dateDiv);
+                timelineLabels.appendChild(label);
+                
+                const slot = document.createElement('div');
+                slot.className = 'time-slot';
+                
+                fetch(`/check_availability/${selectedCarId}`)
+                    .then(response => response.json())
+                    .then(data => {
+                        const isAvailable = !data.reserved_dates.some(reservation => {
+                            const checkDate = new Date(currentDate);
+                            checkDate.setDate(checkDate.getDate() + i);
+                            return checkDate >= new Date(reservation.start) && 
+                                   checkDate <= new Date(reservation.end);
+                        });
+                        
+                        slot.classList.add(isAvailable ? 'available' : 'reserved');
+                        slot.setAttribute('data-status', isAvailable ? 'Available' : 'Reserved');
+                        
+                        const time = date.toLocaleDateString('en-US', { 
+                            weekday: 'short', 
+                            month: 'short', 
+                            day: 'numeric' 
+                        });
+                        slot.title = `${time}: ${isAvailable ? 'Available' : 'Reserved'}`;
+                    });
+                
+                timelineSlots.appendChild(slot);
+            }
+        } else {
+            // Create four separate containers for AM hours, AM slots, PM hours, and PM slots
+            const amHoursContainer = document.createElement('div');
+            amHoursContainer.className = 'timeline-labels hourly';
+            
+            const amSlotsContainer = document.createElement('div');
+            amSlotsContainer.className = 'timeline-slots hourly';
+            
+            const pmHoursContainer = document.createElement('div');
+            pmHoursContainer.className = 'timeline-labels hourly';
+            
+            const pmSlotsContainer = document.createElement('div');
+            pmSlotsContainer.className = 'timeline-slots hourly';
+            
+            timeline.appendChild(amHoursContainer);
+            timeline.appendChild(amSlotsContainer);
+            timeline.appendChild(pmHoursContainer);
+            timeline.appendChild(pmSlotsContainer);
+            
+            // Create AM hours (12 AM to 11 AM)
+            for (let i = 0; i < 12; i++) {
+                const label = document.createElement('div');
+                label.className = 'timeline-label hourly';
+                const hour = i;
+                const formattedHour = hour === 0 ? '12 AM' : `${hour} AM`;
+                label.textContent = formattedHour;
+                amHoursContainer.appendChild(label);
+                
+                const slot = document.createElement('div');
+                slot.className = 'time-slot';
+                
+                fetch(`/check_availability/${selectedCarId}`)
+                    .then(response => response.json())
+                    .then(data => {
+                        const isAvailable = !data.reserved_dates.some(reservation => {
+                            const checkDate = new Date(currentDate);
+                            checkDate.setHours(hour);
+                            return checkDate >= new Date(reservation.start) && 
+                                   checkDate <= new Date(reservation.end);
+                        });
+                        
+                        slot.classList.add(isAvailable ? 'available' : 'reserved');
+                        slot.setAttribute('data-status', isAvailable ? 'Available' : 'Reserved');
+                        
+                        const nextHour = (hour + 1) % 24;
+                        const formattedNextHour = nextHour === 0 ? '12 AM' : `${nextHour} AM`;
+                        slot.title = `${formattedHour} - ${formattedNextHour}: ${isAvailable ? 'Available' : 'Reserved'}`;
+                    });
+                
+                amSlotsContainer.appendChild(slot);
+            }
+            
+            // Create PM hours (12 PM to 11 PM)
+            for (let i = 12; i < 24; i++) {
+                const label = document.createElement('div');
+                label.className = 'timeline-label hourly';
+                const hour = i;
+                const formattedHour = hour === 12 ? '12 PM' : `${hour-12} PM`;
+                label.textContent = formattedHour;
+                pmHoursContainer.appendChild(label);
+                
+                const slot = document.createElement('div');
+                slot.className = 'time-slot';
+                
+                fetch(`/check_availability/${selectedCarId}`)
+                    .then(response => response.json())
+                    .then(data => {
+                        const isAvailable = !data.reserved_dates.some(reservation => {
+                            const checkDate = new Date(currentDate);
+                            checkDate.setHours(hour);
+                            return checkDate >= new Date(reservation.start) && 
+                                   checkDate <= new Date(reservation.end);
+                        });
+                        
+                        slot.classList.add(isAvailable ? 'available' : 'reserved');
+                        slot.setAttribute('data-status', isAvailable ? 'Available' : 'Reserved');
+                        
+                        const nextHour = (hour + 1) % 24;
+                        const formattedNextHour = nextHour === 12 ? '12 PM' : 
+                                                nextHour > 12 ? `${nextHour-12} PM` : 
+                                                nextHour === 0 ? '12 AM' : `${nextHour} AM`;
+                        slot.title = `${formattedHour} - ${formattedNextHour}: ${isAvailable ? 'Available' : 'Reserved'}`;
+                    });
+                
+                pmSlotsContainer.appendChild(slot);
+            }
+        }
+    }
+    
+    // Function to update selected car info
+    function updateSelectedCarInfo() {
+        const selectedOption = carSelector.options[carSelector.selectedIndex];
+        document.getElementById('selectedCarModel').textContent = selectedOption.dataset.model;
+        document.getElementById('selectedCarYear').textContent = selectedOption.dataset.year;
+        document.getElementById('selectedCarDailyRate').textContent = `RM${selectedOption.dataset.dailyRate}/day`;
+        document.getElementById('selectedCarHourlyRate').textContent = `RM${selectedOption.dataset.hourlyRate}/hour`;
+        updateAvailability();
+    }
+    
+    // Add event listener for car selection change
+    carSelector.addEventListener('change', updateSelectedCarInfo);
+    
+    // Event Listeners (keep existing ones)
+    dailyViewBtn.addEventListener('click', () => {
+        currentView = 'daily';
+        dailyViewBtn.classList.add('active');
+        hourlyViewBtn.classList.remove('active');
+        updateDateRange();
+        updateAvailability();
+    });
+    
+    hourlyViewBtn.addEventListener('click', () => {
+        currentView = 'hourly';
+        hourlyViewBtn.classList.add('active');
+        dailyViewBtn.classList.remove('active');
+        updateDateRange();
+        updateAvailability();
+    });
+    
+    document.getElementById('prevDate').addEventListener('click', () => {
+        if (currentView === 'daily') {
+            currentDate.setDate(currentDate.getDate() - 7);
+        } else {
+            currentDate.setDate(currentDate.getDate() - 1);
+        }
+        updateDateRange();
+        updateAvailability();
+    });
+    
+    document.getElementById('nextDate').addEventListener('click', () => {
+        if (currentView === 'daily') {
+            currentDate.setDate(currentDate.getDate() + 7);
+        } else {
+            currentDate.setDate(currentDate.getDate() + 1);
+        }
+        updateDateRange();
+        updateAvailability();
+    });
+    
+    // Initialize
+    updateSelectedCarInfo();
+    updateDateRange();
+});
+</script>
 {% endblock %} 
