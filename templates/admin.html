@@ -1,30 +1,28 @@
 {% extends "admin_base.html" %}
 
-{% block title %}Admin Dashboard{% endblock %}
+{% block title %}Dashboard{% endblock %}
 
 {% block content %}
-<div class="container-fluid">
-    <!-- Car Management Section -->
-    <div class="row mb-4">
-        <div class="col-12">
-            <div class="d-flex justify-content-between align-items-center mb-3">
-                <h2>Car Management</h2>
-                <button type="button" class="btn btn-primary" onclick="showAddCarForm()">
-                    Add New Car
+<div class="row">
+    <!-- Cars Section -->
+    <div class="col-md-6">
+        <div class="card">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <h5 class="mb-0">Cars</h5>
+                <button class="btn btn-primary btn-sm" data-bs-toggle="modal" data-bs-target="#addCarModal">
+                    <i class="bi bi-plus"></i> Add Car
                 </button>
             </div>
-            
-            <!-- Car List -->
-            <div class="card bg-dark">
-                <div class="card-body">
-                    <table class="table table-dark table-hover">
+            <div class="card-body">
+                <div class="table-responsive">
+                    <table class="table">
                         <thead>
                             <tr>
                                 <th>Model</th>
                                 <th>Year</th>
                                 <th>License Plate</th>
-                                <th>Daily Rate (RM)</th>
-                                <th>Hourly Rate (RM)</th>
+                                <th>Daily Rate</th>
+                                <th>Hourly Rate</th>
                                 <th>Actions</th>
                             </tr>
                         </thead>
@@ -34,13 +32,59 @@
                                 <td>{{ car.model }}</td>
                                 <td>{{ car.year }}</td>
                                 <td>{{ car.license_plate }}</td>
-                                <td>{{ car.daily_rate }}</td>
-                                <td>{{ car.hourly_rate }}</td>
+                                <td>${{ "%.2f"|format(car.daily_rate) }}</td>
+                                <td>${{ "%.2f"|format(car.hourly_rate) }}</td>
                                 <td>
-                                    <button class="btn btn-sm btn-primary" onclick="showEditCarForm('{{ car.id }}', '{{ car.model }}', '{{ car.year }}', '{{ car.license_plate }}', '{{ car.daily_rate }}', '{{ car.hourly_rate }}')">Edit</button>
-                                    <button class="btn btn-sm btn-danger" onclick="deleteCar('{{ car.id }}')">Delete</button>
+                                    <button class="btn btn-sm btn-warning" data-bs-toggle="modal" data-bs-target="#editCarModal{{ car.id }}">
+                                        <i class="bi bi-pencil"></i>
+                                    </button>
+                                    <form action="{{ url_for('delete_car', car_id=car.id) }}" method="POST" class="d-inline">
+                                        <button type="submit" class="btn btn-sm btn-danger" onclick="return confirm('Are you sure?')">
+                                            <i class="bi bi-trash"></i>
+                                        </button>
+                                    </form>
                                 </td>
                             </tr>
+
+                            <!-- Edit Car Modal -->
+                            <div class="modal fade" id="editCarModal{{ car.id }}" tabindex="-1">
+                                <div class="modal-dialog">
+                                    <div class="modal-content">
+                                        <div class="modal-header">
+                                            <h5 class="modal-title">Edit Car</h5>
+                                            <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                                        </div>
+                                        <form action="{{ url_for('edit_car', car_id=car.id) }}" method="POST">
+                                            <div class="modal-body">
+                                                <div class="mb-3">
+                                                    <label class="form-label">Model</label>
+                                                    <input type="text" class="form-control" name="model" value="{{ car.model }}" required>
+                                                </div>
+                                                <div class="mb-3">
+                                                    <label class="form-label">Year</label>
+                                                    <input type="number" class="form-control" name="year" value="{{ car.year }}" required>
+                                                </div>
+                                                <div class="mb-3">
+                                                    <label class="form-label">License Plate</label>
+                                                    <input type="text" class="form-control" name="license_plate" value="{{ car.license_plate }}" required>
+                                                </div>
+                                                <div class="mb-3">
+                                                    <label class="form-label">Daily Rate</label>
+                                                    <input type="number" step="0.01" class="form-control" name="daily_rate" value="{{ car.daily_rate }}" required>
+                                                </div>
+                                                <div class="mb-3">
+                                                    <label class="form-label">Hourly Rate</label>
+                                                    <input type="number" step="0.01" class="form-control" name="hourly_rate" value="{{ car.hourly_rate }}" required>
+                                                </div>
+                                            </div>
+                                            <div class="modal-footer">
+                                                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                                                <button type="submit" class="btn btn-primary">Save Changes</button>
+                                            </div>
+                                        </form>
+                                    </div>
+                                </div>
+                            </div>
                             {% endfor %}
                         </tbody>
                     </table>
@@ -50,18 +94,18 @@
     </div>
 
     <!-- Reservations Section -->
-    <div class="row">
-        <div class="col-12">
-            <h2>Reservations</h2>
-            <div class="card bg-dark">
-                <div class="card-body">
-                    <table class="table table-dark table-hover">
+    <div class="col-md-6">
+        <div class="card">
+            <div class="card-header">
+                <h5 class="mb-0">Recent Reservations</h5>
+            </div>
+            <div class="card-body">
+                <div class="table-responsive">
+                    <table class="table">
                         <thead>
                             <tr>
-                                <th>Car</th>
                                 <th>Student ID</th>
-                                <th>Rental Type</th>
-                                <th>Duration</th>
+                                <th>Car</th>
                                 <th>Pickup</th>
                                 <th>Return</th>
                                 <th>Status</th>
@@ -71,18 +115,8 @@
                         <tbody>
                             {% for reservation in reservations %}
                             <tr>
-                                <td>{{ reservation.car.model }}</td>
                                 <td>{{ reservation.student_id }}</td>
-                                <td>{{ reservation.rental_type.capitalize() }}</td>
-                                <td>
-                                    {% if reservation.rental_type == 'hourly' %}
-                                        {% set duration = ((reservation.return_date - reservation.pickup_date).total_seconds() / 3600) | round | int %}
-                                        {{ duration }} hour(s)
-                                    {% else %}
-                                        {% set duration = ((reservation.return_date - reservation.pickup_date).total_seconds() / 86400) | round | int %}
-                                        {{ duration }} day(s)
-                                    {% endif %}
-                                </td>
+                                <td>{{ reservation.car.model }}</td>
                                 <td>{{ reservation.pickup_date.strftime('%Y-%m-%d %H:%M') }}</td>
                                 <td>{{ reservation.return_date.strftime('%Y-%m-%d %H:%M') }}</td>
                                 <td>
@@ -92,8 +126,12 @@
                                 </td>
                                 <td>
                                     {% if reservation.status == 'pending' %}
-                                    <a href="{{ url_for('approve_reservation', reservation_id=reservation.id) }}" class="btn btn-sm btn-success">Approve</a>
-                                    <a href="{{ url_for('reject_reservation', reservation_id=reservation.id) }}" class="btn btn-sm btn-danger">Reject</a>
+                                    <button class="btn btn-sm btn-success update-status" data-reservation-id="{{ reservation.id }}" data-status="approved">
+                                        <i class="bi bi-check"></i>
+                                    </button>
+                                    <button class="btn btn-sm btn-danger update-status" data-reservation-id="{{ reservation.id }}" data-status="rejected">
+                                        <i class="bi bi-x"></i>
+                                    </button>
                                     {% endif %}
                                 </td>
                             </tr>
@@ -106,158 +144,71 @@
     </div>
 </div>
 
-<!-- Add Car Form (Hidden by default) -->
-<div id="addCarForm" style="display: none; position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); background: #343a40; padding: 20px; border-radius: 8px; z-index: 1000; min-width: 300px;">
-    <h3 class="text-light mb-4">Add New Car</h3>
-    <form action="{{ url_for('add_car') }}" method="POST">
-        <div class="mb-3">
-            <label for="model" class="form-label">Model</label>
-            <input type="text" class="form-control" id="model" name="model" required>
+<!-- Add Car Modal -->
+<div class="modal fade" id="addCarModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Add New Car</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <form action="{{ url_for('add_car') }}" method="POST">
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label class="form-label">Model</label>
+                        <input type="text" class="form-control" name="model" required>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Year</label>
+                        <input type="number" class="form-control" name="year" required>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">License Plate</label>
+                        <input type="text" class="form-control" name="license_plate" required>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Daily Rate</label>
+                        <input type="number" step="0.01" class="form-control" name="daily_rate" required>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Hourly Rate</label>
+                        <input type="number" step="0.01" class="form-control" name="hourly_rate" required>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                    <button type="submit" class="btn btn-primary">Add Car</button>
+                </div>
+            </form>
         </div>
-        <div class="mb-3">
-            <label for="year" class="form-label">Year</label>
-            <input type="number" class="form-control" id="year" name="year" required>
-        </div>
-        <div class="mb-3">
-            <label for="license_plate" class="form-label">License Plate</label>
-            <input type="text" class="form-control" id="license_plate" name="license_plate" required>
-        </div>
-        <div class="mb-3">
-            <label for="daily_rate" class="form-label">Daily Rate (RM)</label>
-            <input type="number" step="0.01" class="form-control" id="daily_rate" name="daily_rate" required>
-        </div>
-        <div class="mb-3">
-            <label for="hourly_rate" class="form-label">Hourly Rate (RM)</label>
-            <input type="number" step="0.01" class="form-control" id="hourly_rate" name="hourly_rate" required>
-        </div>
-        <div class="d-flex justify-content-end gap-2">
-            <button type="button" class="btn btn-secondary" onclick="hideAddCarForm()">Cancel</button>
-            <button type="submit" class="btn btn-primary">Add Car</button>
-        </div>
-    </form>
+    </div>
 </div>
+{% endblock %}
 
-<!-- Edit Car Form (Hidden by default) -->
-<div id="editCarForm" style="display: none; position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); background: #343a40; padding: 20px; border-radius: 8px; z-index: 1000; min-width: 300px;">
-    <h3 class="text-light mb-4">Edit Car</h3>
-    <form id="editCarFormElement" method="POST">
-        <input type="hidden" id="editCarId" name="car_id">
-        <div class="mb-3">
-            <label class="form-label text-light">Model</label>
-            <input type="text" class="form-control bg-dark text-light" name="model" id="editModel" required>
-        </div>
-        <div class="mb-3">
-            <label class="form-label text-light">Year</label>
-            <input type="number" class="form-control bg-dark text-light" name="year" id="editYear" required>
-        </div>
-        <div class="mb-3">
-            <label class="form-label text-light">License Plate</label>
-            <input type="text" class="form-control bg-dark text-light" name="license_plate" id="editLicensePlate" required>
-        </div>
-        <div class="mb-3">
-            <label class="form-label text-light">Daily Rate (RM)</label>
-            <input type="number" step="0.01" class="form-control bg-dark text-light" name="daily_rate" id="editDailyRate" required>
-        </div>
-        <div class="mb-3">
-            <label class="form-label text-light">Hourly Rate (RM)</label>
-            <input type="number" step="0.01" class="form-control bg-dark text-light" name="hourly_rate" id="editHourlyRate" required>
-        </div>
-        <div class="d-flex justify-content-end gap-2">
-            <button type="button" class="btn btn-secondary" onclick="hideEditCarForm()">Cancel</button>
-            <button type="submit" class="btn btn-primary">Save Changes</button>
-        </div>
-    </form>
-</div>
-
-<!-- Overlay -->
-<div id="overlay" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 999;"></div>
-
+{% block scripts %}
 <script>
-function showAddCarForm() {
-    document.getElementById('addCarForm').style.display = 'block';
-    document.getElementById('overlay').style.display = 'block';
-}
-
-function hideAddCarForm() {
-    document.getElementById('addCarForm').style.display = 'none';
-    document.getElementById('overlay').style.display = 'none';
-}
-
-function showEditCarForm(id, model, year, license_plate, daily_rate, hourly_rate) {
-    const form = document.getElementById('editCarFormElement');
-    form.action = `/admin/edit_car/${id}`;
-    document.getElementById('editCarId').value = id;
-    document.getElementById('editModel').value = model;
-    document.getElementById('editYear').value = year;
-    document.getElementById('editLicensePlate').value = license_plate;
-    document.getElementById('editDailyRate').value = daily_rate;
-    document.getElementById('editHourlyRate').value = hourly_rate;
-    document.getElementById('editCarForm').style.display = 'block';
-    document.getElementById('overlay').style.display = 'block';
-}
-
-function hideEditCarForm() {
-    document.getElementById('editCarForm').style.display = 'none';
-    document.getElementById('overlay').style.display = 'none';
-}
-
-// Initialize event listeners when document is ready
-document.addEventListener('DOMContentLoaded', function() {
-    // Add Car button
-    document.querySelector('button[onclick="showAddCarForm()"]').addEventListener('click', showAddCarForm);
-
-    // Edit Car buttons
-    document.querySelectorAll('.edit-car-btn').forEach(button => {
-        button.addEventListener('click', function() {
-            const carId = this.dataset.id;
-            const model = this.dataset.model;
-            const year = this.dataset.year;
-            const licensePlate = this.dataset.license;
-            const dailyRate = this.dataset.rate;
-            showEditCarForm(carId, model, year, licensePlate, dailyRate);
-        });
-    });
-
-    // Delete Car buttons
-    document.querySelectorAll('.delete-car-btn').forEach(button => {
-        button.addEventListener('click', function(e) {
-            if (!confirm('Are you sure you want to delete this car?')) {
-                e.preventDefault();
+$(document).ready(function() {
+    $('.update-status').click(function() {
+        const reservationId = $(this).data('reservation-id');
+        const status = $(this).data('status');
+        
+        $.ajax({
+            url: `/admin/update_reservation_status/${reservationId}`,
+            method: 'POST',
+            contentType: 'application/json',
+            data: JSON.stringify({ status: status }),
+            success: function(response) {
+                if (response.success) {
+                    location.reload();
+                } else {
+                    alert('Error updating reservation status');
+                }
+            },
+            error: function() {
+                alert('Error updating reservation status');
             }
         });
     });
-
-    // Close forms when clicking overlay
-    document.getElementById('overlay').addEventListener('click', function() {
-        hideAddCarForm();
-        hideEditCarForm();
-    });
 });
 </script>
-
-<style>
-.table {
-    color: #fff;
-}
-
-.card {
-    background-color: #2c3034;
-    border: 1px solid rgba(255,255,255,0.1);
-}
-
-#addCarForm, #editCarForm {
-    box-shadow: 0 0 20px rgba(0,0,0,0.3);
-}
-
-.form-control {
-    border: 1px solid rgba(255,255,255,0.1);
-}
-
-.form-control:focus {
-    background-color: #2c3034;
-    border-color: #5ddef4;
-    color: #fff;
-    box-shadow: 0 0 0 0.25rem rgba(93, 222, 244, 0.25);
-}
-</style>
 {% endblock %} 

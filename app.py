@@ -2,9 +2,22 @@ from flask import Flask, render_template, request, redirect, url_for, flash, jso
 from datetime import datetime, timedelta
 import config
 from config import db, Car, Reservation, AdminSettings
+from functools import wraps
 
 app = Flask(__name__)
 config.init_app(app)
+
+# Admin authentication
+def admin_required(f):
+    @wraps(f)
+    def decorated_function(*args, **kwargs):
+        auth = request.authorization
+        if not auth or auth.username != 'admin' or auth.password != 'adminpass123':
+            return ('Could not verify your access level for that URL.\n'
+                   'You have to login with proper credentials', 401,
+                   {'WWW-Authenticate': 'Basic realm="Login Required"'})
+        return f(*args, **kwargs)
+    return decorated_function
 
 @app.route('/')
 def index():
@@ -102,12 +115,14 @@ def check_availability(car_id):
     return {'reserved_dates': reserved_dates}
 
 @app.route('/admin')
+@admin_required
 def admin():
     cars = Car.query.all()
     reservations = Reservation.query.order_by(Reservation.created_at.desc()).all()
     return render_template('admin.html', cars=cars, reservations=reservations)
 
 @app.route('/admin/add_car', methods=['POST'])
+@admin_required
 def add_car():
     if request.method == 'POST':
         model = request.form.get('model')
@@ -135,6 +150,7 @@ def add_car():
         return redirect(url_for('admin'))
 
 @app.route('/admin/update_reservation_status/<int:reservation_id>', methods=['POST'])
+@admin_required
 def update_reservation_status(reservation_id):
     reservation = Reservation.query.get_or_404(reservation_id)
     new_status = request.json.get('status')
@@ -146,5 +162,61 @@ def update_reservation_status(reservation_id):
     except Exception as e:
         db.session.rollback()
         return jsonify({'success': False, 'message': 'Error updating reservation status.'}), 500
+
+@app.route('/admin/settings', methods=['GET', 'POST'])
+@admin_required
+def admin_settings():
+    settings = AdminSettings.query.first()
+    if not settings:
+        settings = AdminSettings()
+        db.session.add(settings)
+        db.session.commit()
+
+    if request.method == 'POST':
+        settings.min_rental_duration = request.form.get('min_rental_duration', type=int)
+        settings.delivery_fee = request.form.get('delivery_fee', type=float)
+        settings.late_fee_rate = request.form.get('late_fee_rate', type=float)
+        
+        try:
+            db.session.commit()
+            flash('Settings updated successfully!', 'success')
+        except Exception as e:
+            db.session.rollback()
+            flash('Error updating settings. Please try again.', 'error')
+        
+        return redirect(url_for('admin_settings'))
+
+    return render_template('admin_settings.html', settings=settings)
+
+@app.route('/admin/delete_car/<int:car_id>', methods=['POST'])
+@admin_required
+def delete_car(car_id):
+    car = Car.query.get_or_404(car_id)
+    try:
+        db.session.delete(car)
+        db.session.commit()
+        flash('Car deleted successfully!', 'success')
+    except Exception as e:
+        db.session.rollback()
+        flash('Error deleting car. Please try again.', 'error')
+    return redirect(url_for('admin'))
+
+@app.route('/admin/edit_car/<int:car_id>', methods=['POST'])
+@admin_required
+def edit_car(car_id):
+    car = Car.query.get_or_404(car_id)
+    car.model = request.form.get('model')
+    car.year = request.form.get('year')
+    car.license_plate = request.form.get('license_plate')
+    car.daily_rate = request.form.get('daily_rate')
+    car.hourly_rate = request.form.get('hourly_rate')
+
+    try:
+        db.session.commit()
+        flash('Car updated successfully!', 'success')
+    except Exception as e:
+        db.session.rollback()
+        flash('Error updating car. Please try again.', 'error')
+    return redirect(url_for('admin'))
 
 application = app
