@@ -1,203 +1,192 @@
-{% extends "user_base.html" %}
-
-{% block title %}Payment Confirmation{% endblock %}
-
-{% block content %}
-<div class="container py-4">
-    <div class="row justify-content-center">
-        <div class="col-md-8">
-            <!-- Reservation Summary Card -->
-            <div class="card mb-4">
-                <div class="card-header bg-dark">
-                    <h3 class="card-title mb-0 text-white">Reservation Summary</h3>
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Payment Confirmation</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.8.1/font/bootstrap-icons.css" rel="stylesheet">
+    <style>
+        body {
+            background-color: #1a1d20;
+            color: #e9ecef;
+            font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+        }
+        .card {
+            background-color: #212529;
+            border: 1px solid rgba(255,255,255,.1);
+            border-radius: 15px;
+        }
+        .card-header {
+            background-color: rgba(255,255,255,.05);
+            border-bottom: 1px solid rgba(255,255,255,.1);
+        }
+        .text-cyan {
+            color: #0dcaf0;
+        }
+        .alert-warning {
+            background-color: rgba(255, 193, 7, 0.1);
+            border-color: rgba(255, 193, 7, 0.2);
+            color: #ffc107;
+        }
+        .btn-whatsapp {
+            background-color: #25D366;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 8px;
+            font-weight: 500;
+        }
+        .btn-whatsapp:hover {
+            background-color: #128C7E;
+            color: white;
+        }
+        .qr-code-container {
+            background-color: white;
+            padding: 20px;
+            border-radius: 10px;
+            display: inline-block;
+            margin: 20px 0;
+        }
+        .timer {
+            font-family: monospace;
+            font-size: 1.2rem;
+            color: #dc3545;
+        }
+    </style>
+</head>
+<body>
+    <div class="container py-5">
+        <div class="row justify-content-center">
+            <div class="col-md-8">
+                <!-- Reservation Summary -->
+                <div class="card mb-4">
+                    <div class="card-header">
+                        <h5 class="mb-0">Reservation Summary</h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="row">
+                            <div class="col-md-6">
+                                <p><span class="text-cyan">Car:</span> {{ car.model }} ({{ car.year }})</p>
+                                <p><span class="text-cyan">Rental Type:</span> {{ reservation.rental_type|title }} Rental</p>
+                                <p><span class="text-cyan">Duration:</span> 
+                                    {% if reservation.rental_type == 'hourly' %}
+                                        {% set duration = ((reservation.return_date - reservation.pickup_date).total_seconds() / 3600)|round|int %}
+                                        {{ duration }} hour(s)
+                                    {% else %}
+                                        {% set duration = ((reservation.return_date - reservation.pickup_date).total_seconds() / 86400)|round|int %}
+                                        {{ duration }} day(s)
+                                    {% endif %}
+                                </p>
+                            </div>
+                            <div class="col-md-6">
+                                <p><span class="text-cyan">Pickup:</span> {{ reservation.pickup_date.strftime('%Y-%m-%d %H:%M') }}</p>
+                                <p><span class="text-cyan">Return:</span> {{ reservation.return_date.strftime('%Y-%m-%d %H:%M') }}</p>
+                                <p><span class="text-cyan">Delivery:</span> 
+                                    {% if reservation.pickup_method == 'pickup' %}
+                                        Pickup at Setiawangsa
+                                    {% else %}
+                                        Delivery to {{ reservation.delivery_address or 'UPNM' }}
+                                    {% endif %}
+                                </p>
+                            </div>
+                        </div>
+                        <div class="border-top border-secondary pt-3 mt-3">
+                            <h4 class="text-end mb-0">Total Amount: RM{{ "%.2f"|format(total_amount) }}</h4>
+                        </div>
+                    </div>
                 </div>
-                <div class="card-body">
-                    <div class="row">
-                        <div class="col-md-6">
-                            <p><strong class="text-info">Car:</strong> <span class="text-white">{{ car.model }} ({{ car.year }})</span></p>
-                            <p><strong class="text-info">Rental Type:</strong> <span class="text-white">{{ reservation.rental_type|capitalize }} Rental</span></p>
-                            <p><strong class="text-info">Duration:</strong> <span class="text-white">
-                                {% if reservation.rental_type == 'hourly' %}
-                                    {{ ((reservation.return_date - reservation.pickup_date).total_seconds() / 3600)|round|int }} hour(s)
+
+                <!-- Payment Instructions -->
+                <div class="row">
+                    <!-- QR Code -->
+                    <div class="col-md-6">
+                        <div class="card">
+                            <div class="card-header">
+                                <h5 class="mb-0">Bank Transfer QR Code</h5>
+                            </div>
+                            <div class="card-body text-center">
+                                {% if admin_settings.qr_code_image %}
+                                    <div class="qr-code-container">
+                                        <img src="{{ url_for('uploaded_file', filename=admin_settings.qr_code_image) }}" 
+                                             alt="Payment QR Code" class="img-fluid" style="max-height: 300px;">
+                                    </div>
                                 {% else %}
-                                    {{ ((reservation.return_date - reservation.pickup_date).total_seconds() / 86400)|round|int }} day(s)
+                                    <div class="alert alert-warning">
+                                        <i class="bi bi-exclamation-triangle me-2"></i>
+                                        QR code not available. Please contact admin.
+                                    </div>
                                 {% endif %}
-                            </span></p>
-                        </div>
-                        <div class="col-md-6">
-                            <p><strong class="text-info">Pickup:</strong> <span class="text-white">{{ reservation.pickup_date.strftime('%Y-%m-%d %H:%M') }}</span></p>
-                            <p><strong class="text-info">Return:</strong> <span class="text-white">{{ reservation.return_date.strftime('%Y-%m-%d %H:%M') }}</span></p>
-                            <p><strong class="text-info">Delivery:</strong> <span class="text-white">{{ 'Delivery to UPNM' if reservation.pickup_method == 'delivery' else 'Pickup at Setiawangsa' }}</span></p>
-                        </div>
-                    </div>
-                    <div class="alert alert-info mt-3">
-                        <h4 class="mb-0">Total Amount: RM{{ "%.2f"|format(total_amount) }}</h4>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Payment Instructions -->
-            <div class="row">
-                <!-- QR Code -->
-                <div class="col-md-6 mb-4">
-                    <div class="card h-100">
-                        <div class="card-header bg-dark">
-                            <h5 class="card-title mb-0 text-white">Bank Transfer QR Code</h5>
-                        </div>
-                        <div class="card-body text-center">
-                            {% if admin_settings and admin_settings.payment_qr_image %}
-                            <img src="{{ url_for('static', filename='uploads/' + admin_settings.payment_qr_image) }}" 
-                                 alt="Payment QR Code" class="img-fluid payment-qr">
-                            {% else %}
-                            <div class="alert alert-warning">
-                                <i class="fas fa-exclamation-triangle me-2"></i>
-                                QR code not available. Please contact admin.
                             </div>
-                            {% endif %}
                         </div>
                     </div>
-                </div>
 
-                <!-- Instructions -->
-                <div class="col-md-6 mb-4">
-                    <div class="card h-100">
-                        <div class="card-header bg-dark">
-                            <h5 class="card-title mb-0 text-white">Payment Instructions</h5>
-                        </div>
-                        <div class="card-body">
-                            <ol class="mb-4 text-white">
-                                <li class="mb-3">Scan the QR code to make payment</li>
-                                <li class="mb-3">Take a screenshot of payment proof</li>
-                                <li class="mb-3">Send proof via WhatsApp within 1 hour</li>
-                                <li class="mb-3">Wait for admin approval</li>
-                            </ol>
-                            {% if admin_settings and admin_settings.whatsapp_number %}
-                            <a href="https://wa.me/{{ admin_settings.whatsapp_number.replace('+', '') }}?text=Hi,%20I%20would%20like%20to%20send%20payment%20proof%20for%20my%20car%20rental%20reservation%20(ID:%20{{ reservation.id }})." 
-                               class="btn btn-success btn-lg w-100" target="_blank">
-                                <i class="fab fa-whatsapp me-2"></i>Send Payment Proof via WhatsApp
-                            </a>
-                            {% else %}
-                            <div class="alert alert-warning">
-                                <i class="fas fa-exclamation-triangle me-2"></i>
-                                WhatsApp contact not available. Please contact admin through other means.
+                    <!-- Instructions -->
+                    <div class="col-md-6">
+                        <div class="card">
+                            <div class="card-header">
+                                <h5 class="mb-0">Payment Instructions</h5>
                             </div>
-                            {% endif %}
-                        </div>
-                    </div>
-                </div>
-            </div>
+                            <div class="card-body">
+                                <ol class="list-group list-group-flush list-group-numbered bg-transparent">
+                                    <li class="list-group-item bg-transparent text-light border-secondary">Scan the QR code to make payment</li>
+                                    <li class="list-group-item bg-transparent text-light border-secondary">Take a screenshot of payment proof</li>
+                                    <li class="list-group-item bg-transparent text-light border-secondary">Send proof via WhatsApp within 1 hour</li>
+                                    <li class="list-group-item bg-transparent text-light border-secondary">Wait for admin approval</li>
+                                </ol>
 
-            <!-- Payment Timer -->
-            <div class="card">
-                <div class="card-body">
-                    <div class="alert alert-warning mb-0">
-                        <div class="d-flex justify-content-between align-items-center">
-                            <div>
-                                <i class="fas fa-clock me-2"></i>
-                                <strong>Time Remaining for Payment:</strong>
+                                {% if admin_settings.whatsapp_number %}
+                                    <div class="text-center mt-4">
+                                        <a href="https://wa.me/{{ admin_settings.whatsapp_number.replace('+', '') }}?text=Hi, I would like to send payment proof for reservation ID: {{ reservation.id }}"
+                                           class="btn btn-whatsapp" target="_blank">
+                                            <i class="bi bi-whatsapp me-2"></i>Send Payment Proof via WhatsApp
+                                        </a>
+                                    </div>
+                                {% else %}
+                                    <div class="alert alert-warning mt-3">
+                                        <i class="bi bi-exclamation-triangle me-2"></i>
+                                        WhatsApp contact not available. Please contact admin through other means.
+                                    </div>
+                                {% endif %}
                             </div>
-                            <div id="paymentTimer" class="h4 mb-0"></div>
                         </div>
                     </div>
                 </div>
-            </div>
 
-            <!-- Back Button -->
-            <div class="text-center mt-4">
-                <a href="{{ url_for('index') }}" class="btn btn-secondary btn-lg">
-                    <i class="fas fa-arrow-left me-2"></i>Back to Home
-                </a>
+                <!-- Timer -->
+                <div class="card mt-4">
+                    <div class="card-body text-center">
+                        <h6 class="text-warning mb-2">
+                            <i class="bi bi-clock-history me-2"></i>Time Remaining for Payment:
+                        </h6>
+                        <div class="timer" id="timer">Time Expired!</div>
+                    </div>
+                </div>
             </div>
         </div>
     </div>
-</div>
 
-<style>
-.card {
-    background-color: #1a1a1a;
-    border: 1px solid rgba(93, 222, 244, 0.2);
-    margin-bottom: 1rem;
-}
+    <script>
+        // Timer functionality
+        const deadline = new Date("{{ payment_deadline }}").getTime();
 
-.card-header {
-    background-color: rgba(93, 222, 244, 0.05) !important;
-    border-bottom: 1px solid rgba(93, 222, 244, 0.2);
-}
+        const timer = setInterval(function() {
+            const now = new Date().getTime();
+            const distance = deadline - now;
 
-.alert-info {
-    background-color: rgba(93, 222, 244, 0.1);
-    border-color: rgba(93, 222, 244, 0.2);
-    color: #5ddef4;
-}
+            if (distance <= 0) {
+                clearInterval(timer);
+                document.getElementById("timer").innerHTML = "Time Expired!";
+                return;
+            }
 
-.alert-warning {
-    background-color: rgba(255, 193, 7, 0.1);
-    border-color: rgba(255, 193, 7, 0.2);
-    color: #ffc107;
-}
+            const minutes = Math.floor((distance % (1000 * 60 * 60)) / (1000 * 60));
+            const seconds = Math.floor((distance % (1000 * 60)) / 1000);
 
-.text-info { color: #5ddef4 !important; }
-.text-white { color: #fff !important; }
-
-.btn-success {
-    background-color: #25d366;
-    border-color: #25d366;
-    transition: all 0.3s ease;
-}
-
-.btn-success:hover {
-    background-color: #128c7e;
-    border-color: #128c7e;
-    transform: translateY(-2px);
-}
-
-.payment-qr {
-    max-width: 200px;
-    border-radius: 8px;
-    padding: 8px;
-    background: white;
-}
-
-ol li {
-    margin-bottom: 0.75rem;
-    line-height: 1.4;
-}
-
-#paymentTimer {
-    font-family: monospace;
-    font-size: 2rem;
-}
-
-@media (max-width: 768px) {
-    .col-md-6 {
-        margin-bottom: 1rem;
-    }
-}
-</style>
-
-<script>
-document.addEventListener('DOMContentLoaded', function() {
-    // Start the payment timer
-    const deadline = new Date('{{ payment_deadline }}');
-    
-    function updateTimer() {
-        const now = new Date().getTime();
-        const timeLeft = deadline.getTime() - now;
-
-        if (timeLeft <= 0) {
-            clearInterval(timerInterval);
-            document.getElementById('paymentTimer').innerHTML = '<span class="text-danger">Time Expired!</span>';
-            return;
-        }
-
-        const minutes = Math.floor((timeLeft % (1000 * 60 * 60)) / (1000 * 60));
-        const seconds = Math.floor((timeLeft % (1000 * 60)) / 1000);
-        document.getElementById('paymentTimer').textContent = 
-            `${minutes}:${seconds.toString().padStart(2, '0')}`;
-    }
-
-    const timerInterval = setInterval(updateTimer, 1000);
-    updateTimer();
-});
-</script>
-{% endblock %} 
+            document.getElementById("timer").innerHTML = 
+                minutes.toString().padStart(2, '0') + ":" + 
+                seconds.toString().padStart(2, '0');
+        }, 1000);
+    </script>
+</body>
+</html> 
