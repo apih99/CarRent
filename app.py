@@ -1,11 +1,19 @@
-from flask import Flask, render_template, request, redirect, url_for, flash, jsonify
+from flask import Flask, render_template, request, redirect, url_for, flash, jsonify, send_from_directory
 from datetime import datetime, timedelta
 import config
 from config import db, Car, Reservation, AdminSettings
 from functools import wraps
+import os
+from werkzeug.utils import secure_filename
 
 app = Flask(__name__)
 config.init_app(app)
+
+# Allowed file extensions
+ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg'}
+
+def allowed_file(filename):
+    return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
 
 # Admin authentication
 def admin_required(f):
@@ -176,6 +184,23 @@ def admin_settings():
         settings.min_rental_duration = request.form.get('min_rental_duration', type=int)
         settings.delivery_fee = request.form.get('delivery_fee', type=float)
         settings.late_fee_rate = request.form.get('late_fee_rate', type=float)
+        settings.whatsapp_number = request.form.get('whatsapp_number')
+        
+        # Handle QR code upload
+        if 'qr_code' in request.files:
+            file = request.files['qr_code']
+            if file and file.filename and allowed_file(file.filename):
+                # Delete old QR code if it exists
+                if settings.qr_code_image:
+                    old_file_path = os.path.join(app.config['UPLOAD_FOLDER'], settings.qr_code_image)
+                    if os.path.exists(old_file_path):
+                        os.remove(old_file_path)
+                
+                # Save new QR code
+                filename = secure_filename(file.filename)
+                file_path = os.path.join(app.config['UPLOAD_FOLDER'], filename)
+                file.save(file_path)
+                settings.qr_code_image = filename
         
         try:
             db.session.commit()
@@ -187,6 +212,10 @@ def admin_settings():
         return redirect(url_for('admin_settings'))
 
     return render_template('admin_settings.html', settings=settings)
+
+@app.route('/uploads/<filename>')
+def uploaded_file(filename):
+    return send_from_directory(app.config['UPLOAD_FOLDER'], filename)
 
 @app.route('/admin/delete_car/<int:car_id>', methods=['POST'])
 @admin_required

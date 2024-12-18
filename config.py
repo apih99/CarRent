@@ -13,6 +13,14 @@ def init_app(app):
         app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///carrent.db'
     
     app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
+    
+    # Configure upload folder
+    app.config['UPLOAD_FOLDER'] = os.path.join(
+        '/home/apih99/CarRent/static/uploads' if 'PYTHONANYWHERE_SITE' in os.environ 
+        else 'static/uploads'
+    )
+    os.makedirs(app.config['UPLOAD_FOLDER'], exist_ok=True)
+    
     db.init_app(app)
     
     # Create tables within the application context
@@ -54,3 +62,5 @@ class AdminSettings(db.Model):
     min_rental_duration = db.Column(db.Integer, default=2)  # minimum hours for rental
     delivery_fee = db.Column(db.Float, default=20.0)
     late_fee_rate = db.Column(db.Float, default=10.0)  # percentage
+    qr_code_image = db.Column(db.String(255), nullable=True)  # path to QR code image
+    whatsapp_number = db.Column(db.String(20), nullable=True)  # WhatsApp contact number
