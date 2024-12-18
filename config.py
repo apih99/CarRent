@@ -9,26 +9,33 @@ def init_app(app):
     
     if 'PYTHONANYWHERE_SITE' in os.environ:
         app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:////home/apih99/CarRent/carrent.db'
+        app.config['UPLOAD_FOLDER'] = '/home/apih99/CarRent/static/uploads'
     else:
         app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///carrent.db'
+        app.config['UPLOAD_FOLDER'] = 'static/uploads'
     
     app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
     
-    # Configure upload folder
-    app.config['UPLOAD_FOLDER'] = os.path.join(
-        '/home/apih99/CarRent/static/uploads' if 'PYTHONANYWHERE_SITE' in os.environ 
-        else 'static/uploads'
-    )
+    # Ensure upload directory exists
     os.makedirs(app.config['UPLOAD_FOLDER'], exist_ok=True)
     
     db.init_app(app)
     
     # Create tables within the application context
     with app.app_context():
+        # Drop all tables first to ensure clean slate
+        db.drop_all()
+        # Create all tables
         db.create_all()
+        
         # Create default admin settings if none exist
         if not AdminSettings.query.first():
-            default_settings = AdminSettings()
+            default_settings = AdminSettings(
+                min_rental_duration=2,
+                delivery_fee=20.0,
+                late_fee_rate=10.0,
+                whatsapp_number='+60123456789'  # Default WhatsApp number
+            )
             db.session.add(default_settings)
             db.session.commit()
 
