@@ -1,21 +1,30 @@
 from flask_sqlalchemy import SQLAlchemy
 from datetime import datetime
+import os
 
 db = SQLAlchemy()
 
-# Email Configuration
-MAIL_SERVER = 'smtp.gmail.com'
-MAIL_PORT = 587
-MAIL_USE_TLS = True
-MAIL_USERNAME = 'hafiz.kelkes@gmail.com'  # Replace with your Gmail address
-MAIL_PASSWORD = 'wuom blzl ilfr wyye'  # Replace with your Gmail app password
-MAIL_DEFAULT_SENDER = 'wuom blzl ilfr wyye'  # Replace with your Gmail address
+def init_app(app):
+    app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', 'your-secret-key-here')
+    
+    if 'PYTHONANYWHERE_SITE' in os.environ:
+        app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:////home/apih99/CarRent/carrent.db'
+    else:
+        app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///carrent.db'
+    
+    app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
+    db.init_app(app)
+    
+    # Create tables within the application context
+    with app.app_context():
+        db.create_all()
+        # Create default admin settings if none exist
+        if not AdminSettings.query.first():
+            default_settings = AdminSettings()
+            db.session.add(default_settings)
+            db.session.commit()
 
-class AdminSettings(db.Model):
-    id = db.Column(db.Integer, primary_key=True)
-    payment_qr_image = db.Column(db.String(255), nullable=True)
-    whatsapp_number = db.Column(db.String(20), nullable=True)
-
+# Models
 class Car(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     model = db.Column(db.String(100), nullable=False)
@@ -33,31 +42,15 @@ class Reservation(db.Model):
     pickup_date = db.Column(db.DateTime, nullable=False)
     return_date = db.Column(db.DateTime, nullable=False)
     car_id = db.Column(db.Integer, db.ForeignKey('car.id'), nullable=False)
-    status = db.Column(db.String(20), default='pending')  # pending, approved, rejected
+    status = db.Column(db.String(20), default='pending')
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
-    pickup_method = db.Column(db.String(20), nullable=False)  # 'setiawangsa' or 'delivery'
-    delivery_address = db.Column(db.Text, nullable=True)  # Required if pickup_method is 'delivery'
-    delivery_fee = db.Column(db.Float, default=0)  # Will be 20 if delivery is chosen
-    rental_type = db.Column(db.String(10), nullable=False, default='daily')  # 'hourly' or 'daily'
+    pickup_method = db.Column(db.String(20), nullable=False)
+    delivery_address = db.Column(db.String(200), nullable=True)
+    delivery_fee = db.Column(db.Float, nullable=False)
+    rental_type = db.Column(db.String(20), nullable=False)
 
-def init_app(app):
-    app.config['SECRET_KEY'] = 'your-secret-key-here'
-    app.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///carrent.db'
-    app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
-    
-    # Email configuration
-    app.config['MAIL_SERVER'] = MAIL_SERVER
-    app.config['MAIL_PORT'] = MAIL_PORT
-    app.config['MAIL_USE_TLS'] = MAIL_USE_TLS
-    app.config['MAIL_USERNAME'] = MAIL_USERNAME
-    app.config['MAIL_PASSWORD'] = MAIL_PASSWORD
-    app.config['MAIL_DEFAULT_SENDER'] = MAIL_DEFAULT_SENDER
-    
-    db.init_app(app)
-    with app.app_context():
-        db.create_all()
-        # Create default admin settings if none exist
-        if not AdminSettings.query.first():
-            default_settings = AdminSettings()
-            db.session.add(default_settings)
-            db.session.commit()
+class AdminSettings(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    min_rental_duration = db.Column(db.Integer, default=2)  # minimum hours for rental
+    delivery_fee = db.Column(db.Float, default=20.0)
+    late_fee_rate = db.Column(db.Float, default=10.0)  # percentage
